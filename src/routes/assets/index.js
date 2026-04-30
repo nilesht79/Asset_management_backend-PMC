@@ -710,6 +710,39 @@ router.get('/export',
     const dataRequest = pool.request();
     params.forEach(param => dataRequest.input(param.name, param.type, param.value));
 
+    console.log("===== EXPORT QUERY =====");
+
+let exportQuery = `
+SELECT
+  a.id, a.asset_tag, a.tag_no, a.serial_number, a.status, a.condition_status,
+  a.purchase_date, a.warranty_end_date, a.purchase_cost, a.notes, a.created_at, a.updated_at,
+  a.asset_type, a.parent_asset_id, a.installation_date, a.removal_date, a.installation_notes,
+  p.name as product_name, p.model as product_model,
+  l.name as location_name, l.building as location_building, l.floor as location_floor, l.address as location_address,
+  u.first_name + ' ' + u.last_name as assigned_user_name, u.email as assigned_user_email,
+  d.department_name as department_name,
+  c.name as category_name,
+  o.name as oem_name,
+  parent.asset_tag as parent_asset_tag,
+  (SELECT COUNT(*) FROM assets comp WHERE comp.parent_asset_id = a.id AND comp.is_active = 1 AND comp.removal_date IS NULL) as component_count
+FROM assets a
+INNER JOIN products p ON a.product_id = p.id
+LEFT JOIN categories c ON p.category_id = c.id
+LEFT JOIN oems o ON p.oem_id = o.id
+LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
+LEFT JOIN locations l ON u.location_id = l.id
+LEFT JOIN DEPARTMENT_MASTER d ON u.department_id = d.department_id
+LEFT JOIN assets parent ON a.parent_asset_id = parent.id
+WHERE ${whereClause}
+ORDER BY a.created_at DESC
+`;
+
+console.log("RAW QUERY:");
+console.log(exportQuery);
+console.log("PARAMS:", params);
+
+
+    
     const result = await dataRequest.query(`
       SELECT
         a.id, a.asset_tag, a.tag_no, a.serial_number, a.status, a.condition_status,
@@ -720,12 +753,14 @@ router.get('/export',
         u.first_name + ' ' + u.last_name as assigned_user_name, u.email as assigned_user_email,
         d.department_name as department_name,
         c.name as category_name,
+        subcat.name as subcategory_name,
         o.name as oem_name,
         parent.asset_tag as parent_asset_tag,
         (SELECT COUNT(*) FROM assets comp WHERE comp.parent_asset_id = a.id AND comp.is_active = 1 AND comp.removal_date IS NULL) as component_count
       FROM assets a
       INNER JOIN products p ON a.product_id = p.id
       LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN categories subcat ON p.subcategory_id = subcat.id
       LEFT JOIN oems o ON p.oem_id = o.id
       LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
       LEFT JOIN locations l ON u.location_id = l.id
@@ -736,6 +771,9 @@ router.get('/export',
     `);
 
     const assets = result.recordset;
+
+    console.log("===== EXPORT COUNT =====");
+console.log("Total Rows:", result.recordset.length);
 
     if (format === 'xlsx') {
       const XLSX = require('xlsx');
@@ -749,6 +787,7 @@ router.get('/export',
         'Product Model': asset.product_model || '',
         'OEM': asset.oem_name || '',
         'Category': asset.category_name || '',
+        'Subcategory': asset.subcategory_name || '',
         'Asset Type': asset.asset_type || 'standalone',
         'Parent Asset Tag': asset.parent_asset_tag || '',
         'Component Count': asset.component_count || 0,
