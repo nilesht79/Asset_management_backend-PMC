@@ -925,7 +925,12 @@ console.log(finalExportQuery);
 
     console.log("===== EXPORT COUNT =====");
 console.log("Total Rows:", result.recordset.length);
-
+return res.json({
+  query: finalExportQuery,
+  totalRows: result.recordset.length,
+  data: result.recordset
+});
+    
     if (format === 'xlsx') {
       const XLSX = require('xlsx');
 
