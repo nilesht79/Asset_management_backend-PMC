@@ -1084,7 +1084,7 @@ This is an automated notification. Please do not reply to this email.
         FROM USER_MASTER u
         LEFT JOIN DEPARTMENT_MASTER d ON u.department_id = d.department_id
         LEFT JOIN locations l ON u.location_id = l.id
-        WHERE u.role IN ('employee', 'department_head', 'coordinator', 'department_coordinator')
+        WHERE u.role IN ('employee', 'department_head', 'coordinator', 'department_coordinator', 'it_head')
           AND u.is_active = 1
         ORDER BY u.first_name, u.last_name
       `;
