@@ -241,9 +241,18 @@ class GatePassPDF {
       .text(issueDate, margin + infoColWidth + 10, y + 22, { lineBreak: false });
 
     // Time of Issue
-    const issueTime = gatePass.issue_date
-      ? new Date(gatePass.issue_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
-      : '____________';
+    // const issueTime = gatePass.issue_date
+    //   ? new Date(gatePass.issue_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+    //   : '____________';
+
+    const issueTime = gatePass.created_at
+  ? new Date(gatePass.created_at).toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+  : '____________';
 
     doc.font('Helvetica-Bold')
       .fontSize(8)
