@@ -448,14 +448,36 @@ router.get('/coordinator',
       const slaStatsResult = await pool.request().query(`
         SELECT
           -- SLA Compliance (Last 30 days)
-          COUNT(CASE WHEN sla.final_status = 'on_track' THEN 1 END) as within_sla_count,
-          COUNT(CASE WHEN sla.final_status = 'breached' THEN 1 END) as breached_count,
+          COUNT(
+            CASE
+              WHEN sla.final_status IN ('on_track', 'warning', 'critical')
+              THEN 1
+            END
+          ) as within_sla_count,
+
+          COUNT(
+            CASE
+              WHEN sla.final_status = 'breached'
+              THEN 1
+            END
+          ) as breached_count,
+
           COUNT(*) as total_resolved_with_sla,
+
           CASE
             WHEN COUNT(*) > 0 THEN
-              CAST(COUNT(CASE WHEN sla.final_status = 'on_track' THEN 1 END) AS FLOAT) / COUNT(*) * 100
+              CAST(
+                COUNT(
+                  CASE
+                    WHEN sla.final_status IN ('on_track', 'warning', 'critical')
+                    THEN 1
+                  END
+                ) AS FLOAT
+              ) / COUNT(*) * 100
             ELSE 0
           END as sla_compliance_rate,
+
+
 
           -- Active SLA Status
           (SELECT COUNT(*) FROM TICKET_SLA_TRACKING sla JOIN TICKETS t ON sla.ticket_id = t.ticket_id WHERE sla.sla_status = 'on_track' AND t.status NOT IN ('resolved', 'closed', 'cancelled')) as active_on_track,
