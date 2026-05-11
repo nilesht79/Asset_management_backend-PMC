@@ -15,9 +15,14 @@ const corsOptions = {
     }
     
     // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    if (
+  allowedOrigins.includes(origin) ||
+  origin.includes('localhost') ||
+  origin.includes('127.0.0.1') ||
+  origin.includes('172.16.150.80')
+) {
+  return callback(null, true);
+}
     
     // Allow localhost in development/testing
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
