@@ -353,6 +353,18 @@ class TicketModel {
         params.createdByUserId = filters.created_by_user_id;
       }
 
+      // Start Date Filter
+        if (filters.start_date) {
+          whereClause += ' AND CAST(t.created_at AS DATE) >= CAST(@startDate AS DATE)';
+          params.startDate = filters.start_date;
+        }
+
+        // End Date Filter
+        if (filters.end_date) {
+          whereClause += ' AND CAST(t.created_at AS DATE) <= CAST(@endDate AS DATE)';
+          params.endDate = filters.end_date;
+        }
+
       if (filters.search) {
         whereClause += ` AND (
           t.ticket_number LIKE @search
@@ -418,19 +430,78 @@ class TicketModel {
         .input('offset', sql.Int, offset)
         .input('limit', sql.Int, limit);
 
-      // Add filter parameters
-      Object.keys(params).forEach(key => {
-        if (key === 'departmentId' || key === 'locationId' || key === 'assignedToEngineerId' || key === 'createdByUserId') {
-          request.input(key, sql.UniqueIdentifier, params[key]);
-        } else {
-          request.input(key, sql.VarChar, params[key]);
-        }
-      });
+      // old code Add filter parameters
+      // Object.keys(params).forEach(key => {
+      //   if (key === 'departmentId' || key === 'locationId' || key === 'assignedToEngineerId' || key === 'createdByUserId') {
+      //     request.input(key, sql.UniqueIdentifier, params[key]);
+      //   } else {
+      //     request.input(key, sql.VarChar, params[key]);
+      //   }
+      // });
 
-      const [ticketsResult, countResult] = await Promise.all([
-        request.query(query),
-        pool.request().query(countQuery.replace(whereClause, whereClause.split('AND').slice(0, -whereClause.split('AND').length + Object.keys(params).length + 1).join('AND')))
-      ]);
+      // New code to add with date range filter parameters
+          Object.keys(params).forEach(key => {
+
+            if (
+              key === 'departmentId' ||
+              key === 'locationId' ||
+              key === 'assignedToEngineerId' ||
+              key === 'createdByUserId'
+            ) {
+
+              request.input(key, sql.UniqueIdentifier, params[key]);
+
+            } else if (
+              key === 'startDate' ||
+              key === 'endDate'
+            ) {
+
+              request.input(key, sql.DateTime, params[key]);
+
+            } else {
+
+              request.input(key, sql.VarChar, params[key]);
+
+            }
+          });
+
+      // const [ticketsResult, countResult] = await Promise.all([
+      //   request.query(query),
+      //   pool.request().query(countQuery.replace(whereClause, whereClause.split('AND').slice(0, -whereClause.split('AND').length + Object.keys(params).length + 1).join('AND')))
+      // ]);
+
+      let countRequest = pool.request();
+
+        // Add count query parameters
+        Object.keys(params).forEach(key => {
+
+          if (
+            key === 'departmentId' ||
+            key === 'locationId' ||
+            key === 'assignedToEngineerId' ||
+            key === 'createdByUserId'
+          ) {
+
+            countRequest.input(key, sql.UniqueIdentifier, params[key]);
+
+          } else if (
+            key === 'startDate' ||
+            key === 'endDate'
+          ) {
+
+            countRequest.input(key, sql.DateTime, params[key]);
+
+          } else {
+
+            countRequest.input(key, sql.VarChar, params[key]);
+
+          }
+        });
+
+        const [ticketsResult, countResult] = await Promise.all([
+          request.query(query),
+          countRequest.query(countQuery)
+        ]);
 
       return {
         tickets: ticketsResult.recordset,
