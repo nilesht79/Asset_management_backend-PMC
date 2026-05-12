@@ -240,7 +240,7 @@ class GatePassPDF {
       .fillColor(this.colors.black)
       .text(issueDate, margin + infoColWidth + 10, y + 22, { lineBreak: false });
 
-    // Time of Issue
+   // Time of Issue
     // const issueTime = gatePass.issue_date
     //   ? new Date(gatePass.issue_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
     //   : '____________';
