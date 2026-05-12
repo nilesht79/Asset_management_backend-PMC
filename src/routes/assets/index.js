@@ -842,8 +842,10 @@ INNER JOIN products p ON a.product_id = p.id
 LEFT JOIN categories c ON p.category_id = c.id
 LEFT JOIN oems o ON p.oem_id = o.id
 LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-LEFT JOIN locations l ON u.location_id = l.id
-LEFT JOIN DEPARTMENT_MASTER d ON u.department_id = d.department_id
+      LEFT JOIN locations l 
+      ON COALESCE(a.location_id, u.location_id) = l.id
+      LEFT JOIN DEPARTMENT_MASTER d 
+      ON COALESCE(a.department_id, u.department_id) = d.department_id
 LEFT JOIN assets parent ON a.parent_asset_id = parent.id
 WHERE ${whereClause}
 ORDER BY a.created_at DESC
@@ -882,8 +884,10 @@ params.forEach(p => {
       LEFT JOIN categories subcat ON p.subcategory_id = subcat.id
       LEFT JOIN oems o ON p.oem_id = o.id
       LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-      LEFT JOIN locations l ON a.location_id = l.id
-      LEFT JOIN DEPARTMENT_MASTER d ON a.department_id = d.department_id
+      LEFT JOIN locations l 
+      ON COALESCE(a.location_id, u.location_id) = l.id
+      LEFT JOIN DEPARTMENT_MASTER d 
+      ON COALESCE(a.department_id, u.department_id) = d.department_id
       LEFT JOIN assets parent ON a.parent_asset_id = parent.id
       WHERE ${whereClause}
       ORDER BY a.created_at DESC
