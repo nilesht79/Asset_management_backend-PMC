@@ -2182,7 +2182,9 @@ router.post('/',
       installation_notes,
       installed_by,
       // Software installations
-      software_installations = []
+      software_installations = [],
+       location_id,
+      department_id
     } = req.body;
 
     const pool = await connectDB();
@@ -2379,6 +2381,8 @@ router.post('/',
       .input('installationDate', sql.DateTime, asset_type === 'component' ? new Date() : null)
       .input('installationNotes', sql.Text, installation_notes)
       .input('installedBy', sql.UniqueIdentifier, performedBy)
+      .input('locationId', sql.UniqueIdentifier, location_id || null)
+      .input('departmentId', sql.UniqueIdentifier, department_id || null)
       .query(`
         INSERT INTO assets (
           id, asset_tag, tag_no, serial_number, product_id, assigned_to, status, condition_status, importance,
