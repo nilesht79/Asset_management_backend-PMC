@@ -305,6 +305,8 @@ class TicketAssetsModel {
           a.status,
           a.condition_status,
           a.parent_asset_id,
+          ISNULL(l.name, 'N/A') AS location_name,
+          ISNULL(d.department_name, 'N/A') AS department_name,
           NULL AS parent_asset_tag,
           p.name AS product_name,
           p.model AS product_model,
@@ -315,6 +317,8 @@ class TicketAssetsModel {
         INNER JOIN products p ON a.product_id = p.id
         LEFT JOIN oems o ON p.oem_id = o.id
         LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN locations l ON TRY_CAST(a.location_id AS UNIQUEIDENTIFIER) = l.id
+        LEFT JOIN DEPARTMENT_MASTER d ON TRY_CAST(a.department_id AS UNIQUEIDENTIFIER) = d.department_id
         WHERE a.assigned_to = @userId
           AND a.is_active = 1
           AND a.status <> 'retired'
@@ -331,6 +335,8 @@ class TicketAssetsModel {
           comp.status,
           comp.condition_status,
           comp.parent_asset_id,
+          ISNULL(pl.name, 'N/A') AS location_name,
+          ISNULL(pd.department_name, 'N/A') AS department_name,
           parent.asset_tag AS parent_asset_tag,
           p.name AS product_name,
           p.model AS product_model,
@@ -342,6 +348,8 @@ class TicketAssetsModel {
         INNER JOIN products p ON comp.product_id = p.id
         LEFT JOIN oems o ON p.oem_id = o.id
         LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN locations pl ON TRY_CAST(parent.location_id AS UNIQUEIDENTIFIER) = pl.id
+        LEFT JOIN DEPARTMENT_MASTER pd ON TRY_CAST(parent.department_id AS UNIQUEIDENTIFIER) = pd.department_id
         WHERE parent.assigned_to = @userId
           AND comp.is_active = 1
           AND comp.status <> 'retired'
