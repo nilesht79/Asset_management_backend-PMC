@@ -517,6 +517,7 @@ Helpdesk
       return sendError(res, error.message || 'Failed to create ticket', 500);
     }
   }
+
   /**
    * Get all tickets with filters and pagination
    * GET /api/tickets
@@ -980,23 +981,11 @@ Helpdesk
   // 'Coordinator'
   //       });
 
-//   await inAppNotificationService.createTicketAssignmentNotification({
-//   engineer_id: assigned_to_engineer_id,
-//   ticket_id: ticket.ticket_id,
-//   ticket_number: ticket.ticket_number,
-//   ticket_title: title,
-//   assigned_by_name:
-//     req.oauth?.user?.name ||
-//     req.oauth?.user?.email ||
-//     req.user?.name ||
-//     req.user?.email ||
-//     'Coordinator'
-// });
-        await inAppNotificationService.createTicketAssignmentNotification({
-  engineer_id: engineer_id,
-  ticket_id: updatedTicket.ticket_id,
-  ticket_number: updatedTicket.ticket_number,
-  ticket_title: updatedTicket.title,
+  await inAppNotificationService.createTicketAssignmentNotification({
+  engineer_id: assigned_to_engineer_id,
+  ticket_id: ticket.ticket_id,
+  ticket_number: ticket.ticket_number,
+  ticket_title: title,
   assigned_by_name:
     req.oauth?.user?.name ||
     req.oauth?.user?.email ||
@@ -1051,27 +1040,27 @@ if (engineerEmail) {
     'Coordinator';
 
   const emailSubject =
-  `New Ticket Assigned: ${updatedTicket.ticket_number}`;
+    `New Ticket Assigned: ${ticket.ticket_number}`;
 
-const emailBody = `
-Hello Engineer,
+  const emailBody = `
+Hello ${engineerName},
 
 A new ticket has been assigned to you.
 
-Ticket Number: ${updatedTicket.ticket_number}
-Title: ${updatedTicket.title}
-Priority: ${updatedTicket.priority || 'medium'}
+Ticket Number: ${ticket.ticket_number}
+Title: ${title}
+Priority: ${ticket.priority || 'medium'}
 
 Assigned By: ${assignedByName}
 
 Description:
-${updatedTicket.description || 'No description provided'}
+${description || 'No description provided'}
 
 Please login to the Unified ITSM Platform and work on this ticket.
 
 Regards,
 Helpdesk
-`;
+  `;
 
   await emailService.sendEmail(
     engineerEmail,
@@ -1097,6 +1086,137 @@ Helpdesk
       return sendError(res, error.message || 'Failed to assign engineer', 500);
     }
   }
+
+  /**
+   * Close ticket
+   * PUT /api/tickets/:id/close
+   */
+  static async closeTicket(req, res) {
+    try {
+      const { id } = req.params;
+      const { resolution_notes } = req.body;
+
+      if (!resolution_notes) {
+        return sendError(res, 'Resolution notes are required', 400);
+      }
+
+      // Check if ticket exists
+      const existingTicket = await TicketModel.getTicketById(id);
+      if (!existingTicket) {
+        return sendNotFound(res, 'Ticket not found');
+      }
+
+      // Close ticket
+      await TicketModel.closeTicket(id, resolution_notes);
+
+      // Stop SLA tracking
+      try {
+        const slaResult = await SlaTrackingModel.stopTracking(id, null);
+        if (slaResult) {
+          console.log(`SLA tracking stopped for ticket ${existingTicket.ticket_number} - final status: ${slaResult.final_status}`);
+        }
+      } catch (slaError) {
+        console.error('Failed to stop SLA tracking:', slaError.message);
+      }
+
+      // Fetch updated ticket
+      const updatedTicket = await TicketModel.getTicketById(id);
+
+      // Notify employee and engineer about ticket closure
+//       try {
+//         const closedByName = req.oauth?.user?.name || req.oauth?.user?.email || 'Coordinator';
+
+//         // Notify the employee (ticket creator)
+//         if (existingTicket.created_by_user_id) {
+//           await NotificationModel.createNotification({
+//             user_id: existingTicket.created_by_user_id,
+//             ticket_id: id,
+//             notification_type: 'ticket_closed',
+//             title: `Ticket Closed: ${existingTicket.ticket_number}`,
+//             message: `Your ticket "${existingTicket.title}" has been closed by ${closedByName}.`,
+//             priority: 'medium',
+//             related_data: {
+//               ticket_number: existingTicket.ticket_number,
+//               ticket_title: existingTicket.title,
+//               closed_by: closedByName,
+//               resolution_notes: resolution_notes
+//             }
+//           });
+
+//           const employeeEmail = await TicketController.getEngineerEmail(existingTicket.created_by_user_id);
+//           if (employeeEmail) {
+//             const emailSubject = `Ticket Closed: ${existingTicket.ticket_number}`;
+//             const emailBody = `
+// Hello,
+
+// Your ticket has been closed.
+
+// Ticket Number: ${existingTicket.ticket_number}
+// Title: ${existingTicket.title}
+// Status: Closed
+// Closed By: ${closedByName}
+
+// Resolution:
+// ${resolution_notes || 'No resolution notes provided'}
+
+// If you believe this issue is not fully resolved, please contact the IT support team.
+
+// This is an automated notification. Please do not reply to this email.
+//             `;
+//             await emailService.sendEmail(employeeEmail, emailSubject, emailBody.trim());
+//           }
+//         }
+
+//         // Notify the assigned engineer
+//         if (existingTicket.assigned_to_engineer_id) {
+//           await NotificationModel.createNotification({
+//             user_id: existingTicket.assigned_to_engineer_id,
+//             ticket_id: id,
+//             notification_type: 'ticket_closed',
+//             title: `Ticket Closed: ${existingTicket.ticket_number}`,
+//             message: `Ticket "${existingTicket.title}" has been closed by ${closedByName}.`,
+//             priority: 'low',
+//             related_data: {
+//               ticket_number: existingTicket.ticket_number,
+//               ticket_title: existingTicket.title,
+//               closed_by: closedByName,
+//               resolution_notes: resolution_notes
+//             }
+//           });
+
+//           const engineerEmail = await TicketController.getEngineerEmail(existingTicket.assigned_to_engineer_id);
+//           if (engineerEmail) {
+//             const emailSubject = `Ticket Closed: ${existingTicket.ticket_number}`;
+//             const emailBody = `
+// Hello,
+
+// A ticket assigned to you has been closed.
+
+// Ticket Number: ${existingTicket.ticket_number}
+// Title: ${existingTicket.title}
+// Status: Closed
+// Closed By: ${closedByName}
+
+// Resolution:
+// ${resolution_notes || 'No resolution notes provided'}
+
+// This is an automated notification. Please do not reply to this email.
+//             `;
+//             await emailService.sendEmail(engineerEmail, emailSubject, emailBody.trim());
+//           }
+//         }
+//         console.log(`Ticket closure notifications sent for ticket ${existingTicket.ticket_number}`);
+//       } catch (notificationError) {
+//         console.error('Failed to send ticket closure notifications:', notificationError.message);
+//       }
+
+      return sendSuccess(res, updatedTicket, 'Ticket closed successfully');
+    } catch (error) {
+      console.error('Close ticket error:', error);
+      return sendError(res, error.message || 'Failed to close ticket', 500);
+    }
+  }
+
   /**
    * Get available engineers (optionally filtered by dept/location)
    * GET /api/tickets/engineers
