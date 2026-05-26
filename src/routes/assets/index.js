@@ -1336,15 +1336,16 @@ router.post('/legacy-import',
 
           // Determine final status for components
           // Components with parent = 'in_use', spare components without parent = respect user selection
-          const finalStatus = (asset_type === 'component' && asset.parent_asset_id) ? 'in_use' : asset.status;
+          // const finalStatus = (asset_type === 'component' && asset.parent_asset_id) ? 'in_use' : asset.status;
+          const finalStatus = (asset_type === 'component' && parentAssetId) ? 'in_use' : asset.status;
 
           await pool.request()
             .input('id', sql.UniqueIdentifier, assetId)
             .input('assetTag', sql.VarChar(50), assetTag)
             .input('tagNo', sql.VarChar(100), tagNo)
             .input('serialNumber', sql.VarChar(100), asset.serial_number)
-            .input('productId', sql.UniqueIdentifier, asset.product_id)
-            .input('assignedTo', sql.UniqueIdentifier, asset.assigned_to)
+            .input('productId', sql.UniqueIdentifier, asset.product_id || null)
+            .input('assignedTo', sql.UniqueIdentifier, asset.assigned_to || null)
             .input('status', sql.VarChar(20), finalStatus)
             .input('conditionStatus', sql.VarChar(20), asset.condition_status)
             .input('importance', sql.VarChar(20), asset.importance || 'medium')
@@ -1356,7 +1357,7 @@ router.post('/legacy-import',
             .input('eosDate', sql.Date, asset.eos_date || null)
             .input('notes', sql.NVarChar(sql.MAX), asset.notes)
             .input('assetType', sql.VarChar(20), asset_type)
-            .input('parentAssetId', sql.UniqueIdentifier, parentAssetId)
+            .input('parentAssetId', sql.UniqueIdentifier, parentAssetId || null)
             .input('installationDate', sql.DateTime, asset_type === 'component' ? new Date() : null)
             .input('installationNotes', sql.Text, installation_notes)
             .input('vendorId', sql.UniqueIdentifier, asset.vendor_id || null)
