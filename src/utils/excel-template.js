@@ -1161,19 +1161,19 @@ async function parseLegacyAssetFile(fileBuffer, referenceData) {
 
   const seenSerialNumbers = new Set();
 
-  // Create lookup maps for faster matching
+// Create lookup maps for faster matching
 const productsByName = new Map();
 const productsById = new Map();
 
-products.forEach(p => {
-  if (p?.name) {
+products.forEach((p) => {
+  if (p && p.name) {
     productsByName.set(
       String(p.name).toLowerCase().trim(),
       p
     );
   }
 
-  if (p?.id) {
+  if (p && p.id) {
     productsById.set(
       String(p.id).toLowerCase().trim(),
       p
@@ -1184,16 +1184,15 @@ products.forEach(p => {
 const usersByEmail = new Map();
 const usersByEmployeeId = new Map();
 
-users.forEach(u => {
-
-  if (u?.email) {
+users.forEach((u) => {
+  if (u && u.email) {
     usersByEmail.set(
       String(u.email).toLowerCase().trim(),
       u
     );
   }
 
-  if (u?.employee_id) {
+  if (u && u.employee_id) {
     usersByEmployeeId.set(
       String(u.employee_id).toLowerCase().trim(),
       u
@@ -1201,12 +1200,10 @@ users.forEach(u => {
   }
 });
 
-// Create vendor lookup map
 const vendorsByName = new Map();
 
-vendors.forEach(v => {
-
-  if (v?.name) {
+vendors.forEach((v) => {
+  if (v && v.name) {
     vendorsByName.set(
       String(v.name).toLowerCase().trim(),
       v
