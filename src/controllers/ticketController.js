@@ -1827,6 +1827,31 @@ This is an automated notification. Please do not reply to this email.
     }
   }
 
+  static async getPendingServiceTypeRequests(req, res) {
+  try {
+
+    // temporary empty response
+    return sendSuccess(
+      res,
+      [],
+      'Pending service type requests fetched successfully'
+    );
+
+  } catch (error) {
+
+    console.error(
+      'Get pending service type requests error:',
+      error
+    );
+
+    return sendError(
+      res,
+      error.message || 'Failed to fetch pending requests',
+      500
+    );
+  }
+}
+
   /**
    * Get close request count (for badge)
    * GET /api/tickets/close-requests-count
