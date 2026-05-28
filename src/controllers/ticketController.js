@@ -981,11 +981,24 @@ Helpdesk
   // 'Coordinator'
   //       });
 
-  await inAppNotificationService.createTicketAssignmentNotification({
-  engineer_id: assigned_to_engineer_id,
-  ticket_id: ticket.ticket_id,
-  ticket_number: ticket.ticket_number,
-  ticket_title: title,
+//   await inAppNotificationService.createTicketAssignmentNotification({
+//   engineer_id: assigned_to_engineer_id,
+//   ticket_id: ticket.ticket_id,
+//   ticket_number: ticket.ticket_number,
+//   ticket_title: title,
+//   assigned_by_name:
+//     req.oauth?.user?.name ||
+//     req.oauth?.user?.email ||
+//     req.user?.name ||
+//     req.user?.email ||
+//     'Coordinator'
+// });
+
+        await inAppNotificationService.createTicketAssignmentNotification({
+  engineer_id: engineer_id,
+  ticket_id: updatedTicket.ticket_id,
+  ticket_number: updatedTicket.ticket_number,
+  ticket_title: updatedTicket.title,
   assigned_by_name:
     req.oauth?.user?.name ||
     req.oauth?.user?.email ||
@@ -1030,7 +1043,50 @@ Helpdesk
 //         }
 
 
-if (engineerEmail) {
+// if (engineerEmail) {
+
+//   const assignedByName =
+//     req.oauth?.user?.name ||
+//     req.oauth?.user?.email ||
+//     req.user?.name ||
+//     req.user?.email ||
+//     'Coordinator';
+
+//   const emailSubject =
+//     `New Ticket Assigned: ${ticket.ticket_number}`;
+
+//   const emailBody = `
+// Hello ${engineerName},
+
+// A new ticket has been assigned to you.
+
+// Ticket Number: ${ticket.ticket_number}
+// Title: ${title}
+// Priority: ${ticket.priority || 'medium'}
+
+// Assigned By: ${assignedByName}
+
+// Description:
+// ${description || 'No description provided'}
+
+// Please login to the Unified ITSM Platform and work on this ticket.
+
+// Regards,
+// Helpdesk
+//   `;
+
+//   await emailService.sendEmail(
+//     engineerEmail,
+//     emailSubject,
+//     emailBody.trim()
+//   );
+
+//   console.log(
+//     `Assignment email sent to ${engineerEmail}`
+//   );
+// }
+
+        if (engineerEmail) {
 
   const assignedByName =
     req.oauth?.user?.name ||
@@ -1040,21 +1096,21 @@ if (engineerEmail) {
     'Coordinator';
 
   const emailSubject =
-    `New Ticket Assigned: ${ticket.ticket_number}`;
+    `New Ticket Assigned: ${updatedTicket.ticket_number}`;
 
   const emailBody = `
-Hello ${engineerName},
+Hello Engineer,
 
 A new ticket has been assigned to you.
 
-Ticket Number: ${ticket.ticket_number}
-Title: ${title}
-Priority: ${ticket.priority || 'medium'}
+Ticket Number: ${updatedTicket.ticket_number}
+Title: ${updatedTicket.title}
+Priority: ${updatedTicket.priority || 'medium'}
 
 Assigned By: ${assignedByName}
 
 Description:
-${description || 'No description provided'}
+${updatedTicket.description || 'No description provided'}
 
 Please login to the Unified ITSM Platform and work on this ticket.
 
@@ -1069,7 +1125,7 @@ Helpdesk
   );
 
   console.log(
-    `Assignment email sent to ${engineerEmail}`
+    \`Assignment email sent to \${engineerEmail}\`
   );
 }
 
