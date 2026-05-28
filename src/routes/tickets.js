@@ -463,36 +463,36 @@ router.put(
  * @desc    Engineer requests to change service type (repair/replace)
  * @access  Engineer
  */
- router.post(
-   '/:id/request-service-type-change',
-   authenticateOAuth,
-   requireRole(['engineer']),
-   TicketController.requestServiceTypeChange
- );
+ // router.post(
+ //   '/:id/request-service-type-change',
+ //   authenticateOAuth,
+ //   requireRole(['engineer']),
+ //   TicketController.requestServiceTypeChange
+ // );
 
 /**
  * @route   PUT /api/tickets/:id/review-service-type-change
  * @desc    Coordinator approves or rejects service type change request
  * @access  Coordinator, Superadmin
  */
- router.put(
-   '/:id/review-service-type-change',
-   authenticateOAuth,
-   requireRole(COORDINATORS),
-   TicketController.reviewServiceTypeChange
- );
+ // router.put(
+ //   '/:id/review-service-type-change',
+ //   authenticateOAuth,
+ //   requireRole(COORDINATORS),
+ //   TicketController.reviewServiceTypeChange
+ // );
 
 /**
  * @route   GET /api/tickets/:id/service-type-requests
  * @desc    Get service type change request history for a ticket
  * @access  All ticket managers
  */
- router.get(
-   '/:id/service-type-requests',
-   authenticateOAuth,
-   requireRole(TICKET_MANAGERS),
-   TicketController.getServiceTypeRequestsByTicketId
- );
+ // router.get(
+ //   '/:id/service-type-requests',
+ //   authenticateOAuth,
+ //   requireRole(TICKET_MANAGERS),
+ //   TicketController.getServiceTypeRequestsByTicketId
+ // );
 
 /**
  * @route   PUT /api/tickets/:id
