@@ -981,24 +981,11 @@ Helpdesk
   // 'Coordinator'
   //       });
 
-//   await inAppNotificationService.createTicketAssignmentNotification({
-//   engineer_id: assigned_to_engineer_id,
-//   ticket_id: ticket.ticket_id,
-//   ticket_number: ticket.ticket_number,
-//   ticket_title: title,
-//   assigned_by_name:
-//     req.oauth?.user?.name ||
-//     req.oauth?.user?.email ||
-//     req.user?.name ||
-//     req.user?.email ||
-//     'Coordinator'
-// });
-
-        await inAppNotificationService.createTicketAssignmentNotification({
-  engineer_id: engineer_id,
-  ticket_id: updatedTicket.ticket_id,
-  ticket_number: updatedTicket.ticket_number,
-  ticket_title: updatedTicket.title,
+  await inAppNotificationService.createTicketAssignmentNotification({
+  engineer_id: assigned_to_engineer_id,
+  ticket_id: ticket.ticket_id,
+  ticket_number: ticket.ticket_number,
+  ticket_title: title,
   assigned_by_name:
     req.oauth?.user?.name ||
     req.oauth?.user?.email ||
@@ -1053,21 +1040,21 @@ if (engineerEmail) {
     'Coordinator';
 
   const emailSubject =
-    `New Ticket Assigned: ${updatedTicket.ticket_number}`;
+    `New Ticket Assigned: ${ticket.ticket_number}`;
 
   const emailBody = `
-Hello Engineer,
+Hello ${engineerName},
 
 A new ticket has been assigned to you.
 
-Ticket Number: ${updatedTicket.ticket_number}
-Title: ${updatedTicket.title}
-Priority: ${updatedTicket.priority || 'medium'}
+Ticket Number: ${ticket.ticket_number}
+Title: ${title}
+Priority: ${ticket.priority || 'medium'}
 
 Assigned By: ${assignedByName}
 
 Description:
-${updatedTicket.description || 'No description provided'}
+${description || 'No description provided'}
 
 Please login to the Unified ITSM Platform and work on this ticket.
 
@@ -1826,31 +1813,6 @@ This is an automated notification. Please do not reply to this email.
       return sendError(res, error.message || 'Failed to fetch close requests', 500);
     }
   }
-
-//   static async getPendingServiceTypeRequests(req, res) {
-//   try {
-
-//     // temporary empty response
-//     return sendSuccess(
-//       res,
-//       [],
-//       'Pending service type requests fetched successfully'
-//     );
-
-//   } catch (error) {
-
-//     console.error(
-//       'Get pending service type requests error:',
-//       error
-//     );
-
-//     return sendError(
-//       res,
-//       error.message || 'Failed to fetch pending requests',
-//       500
-//     );
-//   }
-// }
 
   /**
    * Get close request count (for badge)
@@ -2800,15 +2762,15 @@ This is an automated notification. Please do not reply to this email.
    * Get pending service type change requests (for coordinators)
    * GET /api/tickets/pending-service-type-requests
    */
-  // static async getPendingServiceTypeRequests(req, res) {
-  //   try {
-  //     const requests = await TicketModel.getPendingServiceTypeRequests();
-  //     return sendSuccess(res, requests);
-  //   } catch (error) {
-  //     console.error('Get pending service type requests error:', error);
-  //     return sendError(res, 'Failed to fetch pending service type requests', 500);
-  //   }
-  // }
+  static async getPendingServiceTypeRequests(req, res) {
+    try {
+      const requests = await TicketModel.getPendingServiceTypeRequests();
+      return sendSuccess(res, requests);
+    } catch (error) {
+      console.error('Get pending service type requests error:', error);
+      return sendError(res, 'Failed to fetch pending service type requests', 500);
+    }
+  }
 
   /**
    * Get service type change request history for a ticket
