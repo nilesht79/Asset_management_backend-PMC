@@ -322,7 +322,8 @@ router.get('/export',
         location_floor: user.location_floor || '',
         room_no: user.room_no || '',
         is_active: user.is_active ? 'Active' : 'Inactive',
-        created_at: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : ''
+        // created_at: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : ''
+        created_at: user.created_at && !isNaN(new Date(user.created_at).getTime()) ? new Date(user.created_at).toISOString().split('T')[0]: ''
       });
     });
 
