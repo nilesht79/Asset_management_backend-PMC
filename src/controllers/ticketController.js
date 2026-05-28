@@ -1124,8 +1124,8 @@ Helpdesk
     emailBody.trim()
   );
 
-  console.log(
-    \`Assignment email sent to \${engineerEmail}\`
+ console.log(
+    `Assignment email sent to ${engineerEmail}`
   );
 }
 
