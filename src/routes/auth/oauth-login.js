@@ -91,8 +91,14 @@ router.post('/oauth-login',
 
       // Query database directly for must_change_password since oauth2-server strips custom user properties
       const pool = await connectDB();
+      console.log("TOKEN RESPONSE USER =>", tokenResponse.user);
       const userResult = await pool.request()
-        .input('userId', sql.UniqueIdentifier, tokenResponse.user.id)
+        // .input('userId', sql.UniqueIdentifier, tokenResponse.user.id)
+        .input(
+  'userId',
+  sql.UniqueIdentifier,
+  tokenResponse.user.id || tokenResponse.user.user_id
+)
         .query('SELECT must_change_password FROM USER_MASTER WHERE user_id = @userId');
 
       const mustChangePassword = userResult.recordset.length > 0
