@@ -29,7 +29,8 @@ const validators = {
       role: Joi.string().valid(...Object.values(USER_ROLES)).required(),
       department_id: Joi.string().uuid().optional().allow(null),
       location_id: Joi.string().uuid().optional().allow(null),
-      employee_id: Joi.string().max(20).optional(),
+      // employee_id: Joi.string().max(20).optional(),
+      employee_id: Joi.string().max(20).optional().allow('', null),
       designation: Joi.string().max(100).optional().allow('', null),
       room_no: Joi.string().max(50).optional().allow('', null),
       contact_number: Joi.string().max(15).pattern(/^[0-9]+$/).optional().allow('', null),
@@ -41,11 +42,16 @@ const validators = {
     update: Joi.object({
       first_name: Joi.string().min(2).max(50).optional(),
       last_name: Joi.string().min(2).max(50).optional(),
-      email: Joi.string().email({ tlds: { allow: false } }).optional(),
+      // email: Joi.string().email({ tlds: { allow: false } }).optional(),
+      email: Joi.string()
+  .email({ tlds: { allow: false } })
+  .optional()
+  .allow('', null),
       role: Joi.string().valid(...Object.values(USER_ROLES)).optional(),
       department_id: Joi.string().uuid().optional().allow(null),
       location_id: Joi.string().uuid().optional().allow(null),
-      employee_id: Joi.string().max(20).optional(),
+      // employee_id: Joi.string().max(20).optional(),
+      employee_id: Joi.string().max(20).optional().allow('', null),
       designation: Joi.string().max(100).optional().allow('', null),
       room_no: Joi.string().max(50).optional().allow('', null),
       contact_number: Joi.string().max(15).pattern(/^[0-9]+$/).optional().allow('', null),
