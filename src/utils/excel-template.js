@@ -1297,7 +1297,7 @@ vendors.forEach((v) => {
     }
 
     // Validate status
-    const validStatuses = ['available', 'assigned', 'in_use', 'under_repair', 'disposed'];
+    const validStatuses = ['available', 'assigned', 'in_use', 'under_repair', 'disposed', 'not found'];
     if (!validStatuses.includes(rowData.status)) {
       errors.push(`Invalid status: ${rowData.status}`);
     }
