@@ -106,24 +106,60 @@ class TicketModel {
         )
       `;
 
-      const result = await pool.request()
-        .input('ticketNumber', sql.VarChar(20), ticketNumber)
-        .input('title', sql.NVarChar(200), ticketData.title)
-        .input('description', sql.NVarChar(sql.MAX), ticketData.description || null)
-        .input('status', sql.VarChar(20), ticketData.status || 'open')
-        .input('priority', sql.VarChar(20), ticketData.priority || 'medium')
-        .input('createdByUserId', sql.UniqueIdentifier, ticketData.created_by_user_id)
-        .input('createdByCoordinatorId', sql.UniqueIdentifier, ticketData.created_by_coordinator_id)
-        .input('assignedToEngineerId', sql.UniqueIdentifier, ticketData.assigned_to_engineer_id || null)
-        .input('departmentId', sql.UniqueIdentifier, employee.department_id)
-        .input('locationId', sql.UniqueIdentifier, employee.location_id)
-        .input('category', sql.NVarChar(100), ticketData.category || null)
-        .input('ticketType', sql.NVarChar(30), ticketData.ticket_type || 'incident')
-        .input('serviceType', sql.VarChar(20), ticketData.service_type || 'general')
-        .input('dueDate', sql.DateTime, ticketData.due_date || null)
-        .query(insertQuery);
+      // const result = await pool.request()
+      //   .input('ticketNumber', sql.VarChar(20), ticketNumber)
+      //   .input('title', sql.NVarChar(200), ticketData.title)
+      //   .input('description', sql.NVarChar(sql.MAX), ticketData.description || null)
+      //   .input('status', sql.VarChar(20), ticketData.status || 'open')
+      //   .input('priority', sql.VarChar(20), ticketData.priority || 'medium')
+      //   .input('createdByUserId', sql.UniqueIdentifier, ticketData.created_by_user_id)
+      //   .input('createdByCoordinatorId', sql.UniqueIdentifier, ticketData.created_by_coordinator_id)
+      //   .input('assignedToEngineerId', sql.UniqueIdentifier, ticketData.assigned_to_engineer_id || null)
+      //   .input('departmentId', sql.UniqueIdentifier, employee.department_id)
+      //   .input('locationId', sql.UniqueIdentifier, employee.location_id)
+      //   .input('category', sql.NVarChar(100), ticketData.category || null)
+      //   .input('ticketType', sql.NVarChar(30), ticketData.ticket_type || 'incident')
+      //   .input('serviceType', sql.VarChar(20), ticketData.service_type || 'general')
+      //   .input('dueDate', sql.DateTime, ticketData.due_date || null)
+      //   .query(insertQuery);
 
-      return result.recordset[0];
+      // return result.recordset[0];
+      const result = await pool.request()
+  .input('ticketNumber', sql.VarChar(20), ticketNumber)
+  .input('title', sql.NVarChar(200), ticketData.title)
+  .input('description', sql.NVarChar(sql.MAX), ticketData.description || null)
+  .input('status', sql.VarChar(20), ticketData.status || 'open')
+  .input('priority', sql.VarChar(20), ticketData.priority || 'medium')
+  .input('createdByUserId', sql.UniqueIdentifier, ticketData.created_by_user_id)
+  .input('createdByCoordinatorId', sql.UniqueIdentifier, ticketData.created_by_coordinator_id)
+  .input('assignedToEngineerId', sql.UniqueIdentifier, ticketData.assigned_to_engineer_id || null)
+  .input('departmentId', sql.UniqueIdentifier, employee.department_id)
+  .input('locationId', sql.UniqueIdentifier, employee.location_id)
+  .input('category', sql.NVarChar(100), ticketData.category || null)
+  .input('ticketType', sql.NVarChar(30), ticketData.ticket_type || 'incident')
+  .input('serviceType', sql.VarChar(20), ticketData.service_type || 'general')
+  .input('dueDate', sql.DateTime, ticketData.due_date || null)
+  .query(insertQuery);
+
+const ticket = result.recordset[0];
+
+// Initialize SLA for every ticket
+try {
+  await SlaTrackingModel.initializeTracking(ticket.ticket_id, {
+    priority: ticket.priority,
+    category: ticket.category,
+    department_id: ticket.department_id,
+    location_id: ticket.location_id,
+    ticket_type: ticket.ticket_type,
+    service_type: ticket.service_type
+  });
+
+  console.log(`SLA initialized for ticket ${ticket.ticket_number}`);
+} catch (slaError) {
+  console.error('Failed to initialize SLA:', slaError);
+}
+
+return ticket;
     } catch (error) {
       console.error('Error creating ticket:', error);
       throw error;
