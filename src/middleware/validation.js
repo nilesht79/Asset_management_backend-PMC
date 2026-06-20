@@ -11,11 +11,18 @@ const validate = (schema, source = 'body') => {
 console.log('allow_multi_assets:', req.body.allow_multi_assets)
 console.log('TYPE:', typeof req.body.allow_multi_assets)
 
-    const { error, value } = schema.validate(data, {
-      abortEarly: false,
-      stripUnknown: true,
-      allowUnknown: false
-    });
+    // Convert 0/1 to boolean before Joi validation
+if (req.body.is_vip === 1) req.body.is_vip = true;
+if (req.body.is_vip === 0) req.body.is_vip = false;
+
+if (req.body.allow_multi_assets === 1) req.body.allow_multi_assets = true;
+if (req.body.allow_multi_assets === 0) req.body.allow_multi_assets = false;
+
+const { error, value } = schema.validate(data, {
+  abortEarly: false,
+  stripUnknown: true,
+  allowUnknown: false
+});
 
     console.log('VALIDATED VALUE:', value);
 console.log('VALIDATION ERROR:', error);
