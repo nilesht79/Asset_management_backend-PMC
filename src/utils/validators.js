@@ -35,8 +35,16 @@ const validators = {
       room_no: Joi.string().max(50).optional().allow('', null),
       contact_number: Joi.string().max(15).pattern(/^[0-9]+$/).optional().allow('', null),
       is_active: Joi.boolean().default(true),
-      is_vip: Joi.boolean().default(false),
-      allow_multi_assets: Joi.boolean().default(false)
+
+is_vip: Joi.boolean()
+  .truthy(1)
+  .falsy(0)
+  .default(false),
+
+allow_multi_assets: Joi.boolean()
+  .truthy(1)
+  .falsy(0)
+  .default(false)
     }),
 
     update: Joi.object({
@@ -56,8 +64,20 @@ const validators = {
       room_no: Joi.string().max(50).optional().allow('', null),
       contact_number: Joi.string().max(15).pattern(/^[0-9]+$/).optional().allow('', null),
       is_active: Joi.boolean().optional(),
-      is_vip: Joi.boolean().optional(),
-      allow_multi_assets: Joi.boolean().optional()
+      // is_vip: Joi.boolean().optional(),
+      is_vip: Joi.alternatives()
+  .try(
+    Joi.boolean(),
+    Joi.number().valid(0, 1)
+  )
+  .optional(),
+      // allow_multi_assets: Joi.boolean().optional()
+      allow_multi_assets: Joi.alternatives()
+  .try(
+    Joi.boolean(),
+    Joi.number().valid(0, 1)
+  )
+  .optional(),
     }),
     
     changePassword: Joi.object({
