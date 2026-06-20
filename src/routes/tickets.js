@@ -487,12 +487,12 @@ router.put(
  * @desc    Get service type change request history for a ticket
  * @access  All ticket managers
  */
- // router.get(
- //   '/:id/service-type-requests',
- //   authenticateOAuth,
- //   requireRole(TICKET_MANAGERS),
- //   TicketController.getServiceTypeRequestsByTicketId
- // );
+ router.get(
+   '/:id/service-type-requests',
+   authenticateOAuth,
+   requireRole(TICKET_MANAGERS),
+   TicketController.getServiceTypeRequestsByTicketId
+ );
 
 /**
  * @route   PUT /api/tickets/:id
