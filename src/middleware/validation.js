@@ -7,11 +7,18 @@ const validate = (schema, source = 'body') => {
                  source === 'params' ? req.params : 
                  source === 'query' ? req.query : req[source];
 
+    console.log('REQUEST BODY:', req.body)
+console.log('allow_multi_assets:', req.body.allow_multi_assets)
+console.log('TYPE:', typeof req.body.allow_multi_assets)
+
     const { error, value } = schema.validate(data, {
       abortEarly: false,
       stripUnknown: true,
       allowUnknown: false
     });
+
+    console.log('VALIDATED VALUE:', value);
+console.log('VALIDATION ERROR:', error);
 
     if (error) {
       const errors = error.details.map(detail => ({
