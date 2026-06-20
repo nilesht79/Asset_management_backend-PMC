@@ -65,20 +65,15 @@ allow_multi_assets: Joi.boolean()
       contact_number: Joi.string().max(15).pattern(/^[0-9]+$/).optional().allow('', null),
       is_active: Joi.boolean().optional(),
       // is_vip: Joi.boolean().optional(),
-      is_vip: Joi.alternatives()
-  .try(
-    Joi.boolean(),
-    Joi.number().valid(0, 1)
-  )
+      is_vip: Joi.boolean()
+  .truthy(1)
+  .falsy(0)
   .optional(),
       // allow_multi_assets: Joi.boolean().optional()
-      allow_multi_assets: Joi.alternatives()
-  .try(
-    Joi.boolean(),
-    Joi.number().valid(0, 1)
-  )
-  .optional(),
-    }),
+      allow_multi_assets: Joi.boolean()
+  .truthy(1)
+  .falsy(0)
+  .default(false)
     
     changePassword: Joi.object({
       current_password: Joi.string().required(),
