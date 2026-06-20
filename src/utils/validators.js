@@ -69,11 +69,13 @@ allow_multi_assets: Joi.boolean()
   .truthy(1)
   .falsy(0)
   .optional(),
-      // allow_multi_assets: Joi.boolean().optional()
-      allow_multi_assets: Joi.boolean()
+
+allow_multi_assets: Joi.boolean()
   .truthy(1)
   .falsy(0)
-  .default(false)
+  .optional(),
+
+}),
     
     changePassword: Joi.object({
       current_password: Joi.string().required(),
