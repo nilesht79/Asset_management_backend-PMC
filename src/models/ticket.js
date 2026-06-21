@@ -75,8 +75,6 @@ class TicketModel {
           created_by_user_id,
           created_by_coordinator_id,
           assigned_to_engineer_id,
-          assigned_by_coordinator_id,  
-          assigned_at,
           department_id,
           location_id,
           category,
@@ -97,11 +95,6 @@ class TicketModel {
           @createdByUserId,
           @createdByCoordinatorId,
           @assignedToEngineerId,
-          @assignedByCoordinatorId,     
-          CASE 
-            WHEN @assignedToEngineerId IS NOT NULL THEN GETUTCDATE() 
-            ELSE NULL 
-          END,    
           @departmentId,
           @locationId,
           @category,
@@ -140,7 +133,6 @@ class TicketModel {
   .input('createdByUserId', sql.UniqueIdentifier, ticketData.created_by_user_id)
   .input('createdByCoordinatorId', sql.UniqueIdentifier, ticketData.created_by_coordinator_id)
   .input('assignedToEngineerId', sql.UniqueIdentifier, ticketData.assigned_to_engineer_id || null)
-  .input('assignedByCoordinatorId',sql.UniqueIdentifier,ticketData.assigned_to_engineer_id? ticketData.created_by_coordinator_id: null)
   .input('departmentId', sql.UniqueIdentifier, employee.department_id)
   .input('locationId', sql.UniqueIdentifier, employee.location_id)
   .input('category', sql.NVarChar(100), ticketData.category || null)
@@ -205,8 +197,6 @@ return ticket;
             created_by_user_id,
             created_by_coordinator_id,
             assigned_to_engineer_id,
-            assigned_by_coordinator_id, 
-            assigned_at,
             department_id,
             location_id,
             category,
@@ -225,14 +215,9 @@ return ticket;
             @description,
             @status,
             @priority,
-             @createdByUserId,
+            NULL,
             @createdByCoordinatorId,
             @assignedToEngineerId,
-             @assignedByCoordinatorId,
-              CASE 
-            WHEN @assignedToEngineerId IS NOT NULL THEN GETUTCDATE() 
-            ELSE NULL 
-          END, 
             NULL,
             NULL,
             @category,
@@ -253,8 +238,6 @@ return ticket;
           .input('priority', sql.VarChar(20), ticketData.priority || 'medium')
           .input('createdByCoordinatorId', sql.UniqueIdentifier, ticketData.created_by_coordinator_id)
           .input('assignedToEngineerId', sql.UniqueIdentifier, ticketData.assigned_to_engineer_id || null)
-           .input('assignedByCoordinatorId',sql.UniqueIdentifier,ticketData.assigned_to_engineer_id? ticketData.created_by_coordinator_id: null)
-        .input('departmentId', sql.UniqueIdentifier, employee.department_id)
           .input('category', sql.NVarChar(100), ticketData.category || null)
           .input('ticketType', sql.NVarChar(30), ticketData.ticket_type || 'incident')
           .input('serviceType', sql.VarChar(20), ticketData.service_type || 'general')
@@ -328,9 +311,6 @@ return ticket;
           u3.first_name + ' ' + u3.last_name AS engineer_name,
           u3.email AS engineer_email,
           u3.employee_id AS engineer_employee_id,
-          u4.first_name + ' ' + u4.last_name AS assigned_by_name,
-          u4.email AS assigned_by_email,
-          t.assigned_at,
           -- Department & Location
           d.department_name AS department_name,
           l.name AS location_name,
@@ -343,7 +323,6 @@ return ticket;
         LEFT JOIN USER_MASTER u1 ON t.created_by_user_id = u1.user_id
         LEFT JOIN USER_MASTER u2 ON t.created_by_coordinator_id = u2.user_id
         LEFT JOIN USER_MASTER u3 ON t.assigned_to_engineer_id = u3.user_id
-        LEFT JOIN USER_MASTER u4 ON t.assigned_by_coordinator_id = u4.user_id
         LEFT JOIN DEPARTMENT_MASTER d ON t.department_id = d.department_id
         LEFT JOIN locations l ON t.location_id = l.id
         LEFT JOIN GUEST_TICKETS gt ON t.ticket_id = gt.ticket_id
@@ -354,12 +333,7 @@ return ticket;
         .input('ticketId', sql.UniqueIdentifier, ticketId)
         .query(query);
 
-      const ticket = result.recordset[0];
-
-        if (Array.isArray(ticket.assigned_at)) {
-          ticket.assigned_at = ticket.assigned_at[0];
-        }
-      return ticket;
+      return result.recordset[0] || null;
     } catch (error) {
       console.error('Error fetching ticket:', error);
       throw error;
@@ -389,15 +363,6 @@ return ticket;
         whereClause += ' AND t.priority = @priority';
         params.priority = filters.priority;
       }
-      // if (filters.start_date) {
-      //   whereClause += ' AND t.created_at >= @startDate';
-      //   params.startDate = filters.start_date;
-      // }
-
-      // if (filters.end_date) {
-      //   whereClause += ' AND t.created_at <= @endDate';
-      //   params.endDate = filters.end_date;
-      // }
 
       if (filters.category) {
         whereClause += ' AND t.category = @category';
@@ -424,7 +389,7 @@ return ticket;
         params.createdByUserId = filters.created_by_user_id;
       }
 
-      // // Start Date Filter
+      // Start Date Filter
         if (filters.start_date) {
           whereClause += ' AND CAST(t.created_at AS DATE) >= CAST(@startDate AS DATE)';
           params.startDate = filters.start_date;
@@ -475,14 +440,11 @@ return ticket;
           gt.guest_name,
           gt.guest_email,
           gt.guest_phone,
-          u4.first_name + ' ' + u4.last_name AS assigned_by_name,
-          u4.email AS assigned_by_email,
           c.name AS asset_subcategory
         FROM TICKETS t
         LEFT JOIN USER_MASTER u1 ON t.created_by_user_id = u1.user_id
         LEFT JOIN USER_MASTER u2 ON t.created_by_coordinator_id = u2.user_id
         LEFT JOIN USER_MASTER u3 ON t.assigned_to_engineer_id = u3.user_id
-        LEFT JOIN USER_MASTER u4 ON t.assigned_by_coordinator_id = u4.user_id
         LEFT JOIN DEPARTMENT_MASTER d ON t.department_id = d.department_id
         LEFT JOIN locations l ON t.location_id = l.id
         LEFT JOIN GUEST_TICKETS gt ON t.ticket_id = gt.ticket_id
@@ -661,45 +623,7 @@ return ticket;
   /**
    * Assign engineer to ticket
    */
-  // static async assignEngineer(ticketId, engineerId) {
-  //   try {
-  //     const pool = await connectDB();
-
-  //     // Verify engineer exists and has correct role
-  //     const engineerCheck = await pool.request()
-  //       .input('engineerId', sql.UniqueIdentifier, engineerId)
-  //       .query(`
-  //         SELECT user_id, first_name, last_name, role, is_active
-  //         FROM USER_MASTER
-  //         WHERE user_id = @engineerId AND role = 'engineer' AND is_active = 1
-  //       `);
-
-  //     if (engineerCheck.recordset.length === 0) {
-  //       throw new Error('Engineer not found or invalid');
-  //     }
-
-  //     // Update ticket - set status to in_progress when engineer is assigned
-  //     await pool.request()
-  //       .input('ticketId', sql.UniqueIdentifier, ticketId)
-  //       .input('engineerId', sql.UniqueIdentifier, engineerId)
-  //       .query(`
-  //         UPDATE TICKETS
-  //         SET
-  //           assigned_to_engineer_id = @engineerId,
-  //           status = 'in_progress',
-  //           updated_at = GETUTCDATE()
-  //         WHERE ticket_id = @ticketId
-  //       `);
-
-  //     // Fetch and return the updated ticket
-  //     return await this.getTicketById(ticketId);
-  //   } catch (error) {
-  //     console.error('Error assigning engineer:', error);
-  //     throw error;
-  //   }
-  // }
-
-  static async assignEngineer(ticketId, engineerId, coordinatorId) {
+  static async assignEngineer(ticketId, engineerId) {
     try {
       const pool = await connectDB();
 
@@ -720,13 +644,10 @@ return ticket;
       await pool.request()
         .input('ticketId', sql.UniqueIdentifier, ticketId)
         .input('engineerId', sql.UniqueIdentifier, engineerId)
-        .input('assignedByCoordinatorId', sql.UniqueIdentifier, coordinatorId)
         .query(`
           UPDATE TICKETS
           SET
             assigned_to_engineer_id = @engineerId,
-            assigned_by_coordinator_id = @assignedByCoordinatorId,
-            assigned_at = GETUTCDATE(),
             status = 'in_progress',
             updated_at = GETUTCDATE()
           WHERE ticket_id = @ticketId
@@ -870,45 +791,6 @@ return ticket;
       throw error;
     }
   }
-
-    static async addComment(commentData) {
-    try {
-      const pool = await connectDB();
-  
-      const result = await pool.request()
-        .input('ticketId', sql.UniqueIdentifier, commentData.ticket_id)
-        .input('userId', sql.UniqueIdentifier, commentData.user_id)
-        .input('commentText', sql.NVarChar(sql.MAX), commentData.comment_text)
-        .input('isInternal', sql.Bit, commentData.is_internal || false)
-        .query(`
-          INSERT INTO TICKET_COMMENTS (
-            comment_id,
-            ticket_id,
-            user_id,
-            comment_text,
-            is_internal,
-            created_at
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            NEWID(),
-            @ticketId,
-            @userId,
-            @commentText,
-            @isInternal,
-            GETUTCDATE()
-          )
-        `);
-  
-      return result.recordset[0];
-  
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      throw error;
-    }
-  }
-
-
 
   /**
    * Add comment to ticket
@@ -1137,9 +1019,6 @@ return ticket;
           -- Coordinator
           u2.first_name + ' ' + u2.last_name AS coordinator_name,
           u2.email AS coordinator_email,
-          u4.first_name + ' ' + u4.last_name AS assigned_by_name,
-          u4.email AS assigned_by_email,
-          t.assigned_at,
           -- Department & Location
           d.department_name AS department_name,
           l.name AS location_name,
@@ -1156,7 +1035,6 @@ return ticket;
         LEFT JOIN USER_MASTER u1 ON t.created_by_user_id = u1.user_id
         LEFT JOIN USER_MASTER u2 ON t.created_by_coordinator_id = u2.user_id
         LEFT JOIN DEPARTMENT_MASTER d ON t.department_id = d.department_id
-        LEFT JOIN USER_MASTER u4 ON t.assigned_by_coordinator_id = u4.user_id
         LEFT JOIN locations l ON t.location_id = l.id
         LEFT JOIN GUEST_TICKETS gt ON t.ticket_id = gt.ticket_id
         LEFT JOIN TICKET_CLOSE_REQUESTS cr ON t.ticket_id = cr.ticket_id AND cr.request_status = 'pending'
@@ -1186,26 +1064,12 @@ return ticket;
         }
       });
 
-      // const [ticketsResult, countResult] = await Promise.all([
-      //   request.query(query),
-      //   pool.request()
-      //     .input('engineerId', sql.UniqueIdentifier, engineerId)
-      //     .query(countQuery)
-      // ]);
-      const countRequest = pool.request()
-          .input('engineerId', sql.UniqueIdentifier, engineerId);
-
-        // ✅ ADD ALL FILTER PARAMS HERE
-        Object.keys(params).forEach(key => {
-          if (key !== 'engineerId') {
-            countRequest.input(key, sql.VarChar, params[key]);
-          }
-        });
-
-        const [ticketsResult, countResult] = await Promise.all([
-          request.query(query),
-          countRequest.query(countQuery)
-        ]);
+      const [ticketsResult, countResult] = await Promise.all([
+        request.query(query),
+        pool.request()
+          .input('engineerId', sql.UniqueIdentifier, engineerId)
+          .query(countQuery)
+      ]);
 
       return {
         tickets: ticketsResult.recordset,
