@@ -476,7 +476,7 @@ return ticket;
           gt.guest_email,
           gt.guest_phone,
           u4.first_name + ' ' + u4.last_name AS assigned_by_name,
-          u4.email AS assigned_by_email
+          u4.email AS assigned_by_email,
           c.name AS asset_subcategory
         FROM TICKETS t
         LEFT JOIN USER_MASTER u1 ON t.created_by_user_id = u1.user_id
