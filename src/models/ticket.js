@@ -477,7 +477,15 @@ return ticket;
           gt.guest_phone,
           u4.first_name + ' ' + u4.last_name AS assigned_by_name,
           u4.email AS assigned_by_email,
-          c.name AS asset_subcategory
+          c.name AS asset_subcategory,
+          CAST(t.created_at AS DATE) AS coordinator_created_date,
+          CONVERT(VARCHAR(8), t.created_at, 108) AS coordinator_created_time,
+          CAST(t.assigned_at AS DATE) AS engineer_assigned_date,
+          CONVERT(VARCHAR(8), t.assigned_at, 108) AS engineer_assigned_time,
+          CAST(tcr.created_at AS DATE) AS close_request_date,
+          CONVERT(VARCHAR(8), tcr.created_at, 108) AS close_request_time,
+          CAST(t.closed_at AS DATE) AS final_closed_date,
+          CONVERT(VARCHAR(8), t.closed_at, 108) AS final_closed_time,
         FROM TICKETS t
         LEFT JOIN USER_MASTER u1 ON t.created_by_user_id = u1.user_id
         LEFT JOIN USER_MASTER u2 ON t.created_by_coordinator_id = u2.user_id
@@ -490,6 +498,8 @@ return ticket;
         LEFT JOIN assets a ON a.id = ta.asset_id
         LEFT JOIN products p ON p.id = a.product_id
         LEFT JOIN categories c ON c.id = p.subcategory_id
+        LEFT JOIN ticket_close_requests tcr
+ON t.ticket_id = tcr.ticket_id
         ${whereClause}
         ORDER BY t.created_at DESC
         OFFSET @offset ROWS
