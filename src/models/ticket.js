@@ -485,7 +485,7 @@ return ticket;
           CAST(tcr.created_at AS DATE) AS close_request_date,
           CONVERT(VARCHAR(8), tcr.created_at, 108) AS close_request_time,
           CAST(t.closed_at AS DATE) AS final_closed_date,
-          CONVERT(VARCHAR(8), t.closed_at, 108) AS final_closed_time,
+          CONVERT(VARCHAR(8), t.closed_at, 108) AS final_closed_time
         FROM TICKETS t
         LEFT JOIN USER_MASTER u1 ON t.created_by_user_id = u1.user_id
         LEFT JOIN USER_MASTER u2 ON t.created_by_coordinator_id = u2.user_id
