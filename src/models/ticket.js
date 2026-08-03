@@ -65,27 +65,33 @@ class TicketModel {
 
       // Step 3: Insert ticket with inherited dept/location
       const insertQuery = `
-        INSERT INTO TICKETS (
-          ticket_id,
-          ticket_number,
-          title,
-          description,
-          status,
-          priority,
-          created_by_user_id,
-          created_by_coordinator_id,
-          assigned_to_engineer_id,
-          assigned_by_coordinator_id,  
-          assigned_at,
-          department_id,
-          location_id,
-          category,
-          ticket_type,
-          service_type,
-          due_date,
-          created_at,
-          updated_at
-        )
+       INSERT INTO TICKETS (
+    ticket_id,
+    ticket_number,
+    title,
+    description,
+    status,
+    priority,
+    created_by_user_id,
+    created_by_coordinator_id,
+    assigned_to_engineer_id,
+    assigned_by_coordinator_id,
+    assigned_at,
+
+    coordinator_created_date,
+    coordinator_created_time,
+    engineer_assigned_date,
+    engineer_assigned_time,
+
+    department_id,
+    location_id,
+    category,
+    ticket_type,
+    service_type,
+    due_date,
+    created_at,
+    updated_at
+)
         OUTPUT INSERTED.*
         VALUES (
           NEWID(),
@@ -97,11 +103,29 @@ class TicketModel {
           @createdByUserId,
           @createdByCoordinatorId,
           @assignedToEngineerId,
-          @assignedByCoordinatorId,     
-          CASE 
-            WHEN @assignedToEngineerId IS NOT NULL THEN GETUTCDATE() 
-            ELSE NULL 
-          END,    
+          @assignedByCoordinatorId,
+      
+          CASE
+              WHEN @assignedToEngineerId IS NOT NULL
+              THEN GETUTCDATE()
+              ELSE NULL
+          END,
+      
+          CAST(GETDATE() AS DATE),
+          CAST(GETDATE() AS TIME),
+      
+          CASE
+              WHEN @assignedToEngineerId IS NOT NULL
+              THEN CAST(GETDATE() AS DATE)
+              ELSE NULL
+          END,
+      
+          CASE
+              WHEN @assignedToEngineerId IS NOT NULL
+              THEN CAST(GETDATE() AS TIME)
+              ELSE NULL
+          END,
+      
           @departmentId,
           @locationId,
           @category,
@@ -110,7 +134,7 @@ class TicketModel {
           @dueDate,
           GETUTCDATE(),
           GETUTCDATE()
-        )
+      )
       `;
 
       // const result = await pool.request()
@@ -734,11 +758,15 @@ ON t.ticket_id = tcr.ticket_id
         .query(`
           UPDATE TICKETS
           SET
-            assigned_to_engineer_id = @engineerId,
-            assigned_by_coordinator_id = @assignedByCoordinatorId,
-            assigned_at = GETUTCDATE(),
-            status = 'in_progress',
-            updated_at = GETUTCDATE()
+              assigned_to_engineer_id = @engineerId,
+              assigned_by_coordinator_id = @assignedByCoordinatorId,
+              assigned_at = GETUTCDATE(),
+          
+              engineer_assigned_date = CAST(GETDATE() AS DATE),
+              engineer_assigned_time = CAST(GETDATE() AS TIME),
+          
+              status = 'in_progress',
+              updated_at = GETUTCDATE()
           WHERE ticket_id = @ticketId
         `);
 
@@ -763,12 +791,24 @@ ON t.ticket_id = tcr.ticket_id
         .input('resolutionNotes', sql.NVarChar(sql.MAX), resolutionNotes)
         .query(`
           UPDATE TICKETS
-          SET
-            status = 'closed',
-            resolved_at = CASE WHEN resolved_at IS NULL THEN GETUTCDATE() ELSE resolved_at END,
-            closed_at = GETUTCDATE(),
-            resolution_notes = @resolutionNotes,
-            updated_at = GETUTCDATE()
+            SET
+                status = 'closed',
+            
+                resolved_at = CASE
+                    WHEN resolved_at IS NULL THEN GETUTCDATE()
+                    ELSE resolved_at
+                END,
+            
+                engineer_completed_date = CAST(GETDATE() AS DATE),
+                engineer_completed_time = CAST(GETDATE() AS TIME),
+            
+                coordinator_closed_date = CAST(GETDATE() AS DATE),
+                coordinator_closed_time = CAST(GETDATE() AS TIME),
+            
+                closed_at = GETUTCDATE(),
+            
+                resolution_notes = @resolutionNotes,
+                updated_at = GETUTCDATE()
           WHERE ticket_id = @ticketId
         `);
 
@@ -1521,12 +1561,24 @@ ON t.ticket_id = tcr.ticket_id
           .input('resolutionNotes', sql.NVarChar(sql.MAX), closeRequest.request_notes)
           .query(`
             UPDATE TICKETS
-            SET
-              status = 'closed',
-              resolved_at = CASE WHEN resolved_at IS NULL THEN GETUTCDATE() ELSE resolved_at END,
-              closed_at = GETUTCDATE(),
-              resolution_notes = @resolutionNotes,
-              updated_at = GETUTCDATE()
+                SET
+                    status = 'closed',
+                
+                    resolved_at = CASE
+                        WHEN resolved_at IS NULL THEN GETUTCDATE()
+                        ELSE resolved_at
+                    END,
+                
+                    engineer_completed_date = CAST(GETDATE() AS DATE),
+                    engineer_completed_time = CAST(GETDATE() AS TIME),
+                
+                    coordinator_closed_date = CAST(GETDATE() AS DATE),
+                    coordinator_closed_time = CAST(GETDATE() AS TIME),
+                
+                    closed_at = GETUTCDATE(),
+                
+                    resolution_notes = @resolutionNotes,
+                    updated_at = GETUTCDATE()
             WHERE ticket_id = @ticketId
           `);
 
