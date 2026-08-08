@@ -511,8 +511,8 @@ return ticket;
           CAST(tcr.created_at AS DATE) AS close_request_date,
           CONVERT(VARCHAR(8), tcr.created_at, 108) AS close_request_time,
           
-          t.coordinator_closed_date AS coordinator_closed_date,
-          CONVERT(VARCHAR(8), t.coordinator_closed_time, 108) AS coordinator_closed_time,
+          CAST(t.closed_at AS DATE) AS coordinator_closed_date,
+          CONVERT(VARCHAR(8), t.closed_at, 108) AS coordinator_closed_time,
           
           CAST(t.closed_at AS DATE) AS final_closed_date,
           CONVERT(VARCHAR(8), t.closed_at, 108) AS final_closed_time
@@ -807,10 +807,7 @@ ON t.ticket_id = tcr.ticket_id
             
                 engineer_completed_date = CAST(GETDATE() AS DATE),
                 engineer_completed_time = CAST(GETDATE() AS TIME),
-            
-                coordinator_closed_date = CAST(GETDATE() AS DATE),
-                coordinator_closed_time = CAST(GETDATE() AS TIME),
-            
+                
                 closed_at = GETUTCDATE(),
             
                 resolution_notes = @resolutionNotes,
