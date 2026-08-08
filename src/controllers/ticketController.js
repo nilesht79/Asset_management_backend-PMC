@@ -1457,19 +1457,12 @@ Helpdesk
         { header: 'Engineer Email', key: 'engineer_email', width: 30 },
         { header: 'Department', key: 'department_name', width: 20 },
         { header: 'Location', key: 'location_name', width: 20 },
-        { header: 'Created At', key: 'created_at', width: 20 },
-        { header: 'Updated At', key: 'updated_at', width: 20 },
-        { header: 'Resolved At', key: 'resolved_at', width: 20 },
-        { header: 'Closed At', key: 'closed_at', width: 20 },
-        { header: 'Due Date', key: 'due_date', width: 20 },
         { header: 'Coordinator Created Date', key: 'coordinator_created_date', width: 20 },
         { header: 'Coordinator Created Time', key: 'coordinator_created_time', width: 20 },
         { header: 'Engineer Assigned Date', key: 'engineer_assigned_date', width: 20 },
         { header: 'Engineer Assigned Time', key: 'engineer_assigned_time', width: 20 },
-        { header: 'Close Request Date', key: 'close_request_date', width: 20 },
-        { header: 'Close Request Time', key: 'close_request_time', width: 20 },
-        { header: 'Final Closed Date', key: 'final_closed_date', width: 20 },
-        { header: 'Final Closed Time', key: 'final_closed_time', width: 20 },
+        { header: 'Coordinator Closed Date', key: 'coordinator_closed_date', width: 20 },
+        { header: 'Coordinator Closed Time', key: 'coordinator_closed_time', width: 20 },
         { header: 'Resolution Notes', key: 'resolution_notes', width: 40 }
       ];
 
@@ -1498,19 +1491,12 @@ Helpdesk
           engineer_email: ticket.engineer_email || '',
           department_name: ticket.department_name || '',
           location_name: ticket.location_name || '',
-          created_at: ticket.created_at ? new Date(ticket.created_at).toLocaleString() : '',
-          updated_at: ticket.updated_at ? new Date(ticket.updated_at).toLocaleString() : '',
-          resolved_at: ticket.resolved_at ? new Date(ticket.resolved_at).toLocaleString() : '',
-          closed_at: ticket.closed_at ? new Date(ticket.closed_at).toLocaleString() : '',
-          due_date: ticket.due_date ? new Date(ticket.due_date).toLocaleString() : '',
           coordinator_created_date: ticket.coordinator_created_date || '',
           coordinator_created_time: ticket.coordinator_created_time || '',
           engineer_assigned_date: ticket.engineer_assigned_date || '',
           engineer_assigned_time: ticket.engineer_assigned_time || '',
-          close_request_date: ticket.close_request_date || '',
-          close_request_time: ticket.close_request_time || '',
-          final_closed_date: ticket.final_closed_date || '',
-          final_closed_time: ticket.final_closed_time || '',
+          coordinator_closed_date: ticket.coordinator_closed_date || '',
+          coordinator_closed_time: ticket.coordinator_closed_time || '',
           resolution_notes: ticket.resolution_notes || ''
         });
       });
