@@ -822,15 +822,17 @@ class SlaController {
   static async getComplianceReport(req, res) {
     try {
       const {
-        date_from,
-        date_to,
-        location_id,
-        department_id,
-        asset_category_id,
-        oem_id,
-        product_model,
-        frequency
-      } = req.query;
+          date_from,
+          date_to,
+          location_id,
+          department_id,
+          asset_category_id,
+          sub_category_id,
+          oem_id,
+          product_model,
+          frequency,
+          met_sla
+        } = req.query;
 
       // Validate required date range
       if (!date_from || !date_to) {
@@ -841,15 +843,17 @@ class SlaController {
       }
 
       const filters = {
-        date_from,
-        date_to,
-        location_id,
-        department_id,
-        asset_category_id,
-        oem_id,
-        product_model,
-        frequency
-      };
+            date_from,
+            date_to,
+            location_id,
+            department_id,
+            asset_category_id,
+            sub_category_id,
+            oem_id,
+            product_model,
+            frequency,
+            met_sla
+          };
 
       const report = await SlaTrackingModel.getSlaComplianceReport(filters);
 
@@ -879,9 +883,11 @@ class SlaController {
         location_id,
         department_id,
         asset_category_id,
+        sub_category_id,
         oem_id,
         product_model,
-        frequency
+        frequency,
+        met_sla
       } = req.query;
 
       // Validate required date range
@@ -893,15 +899,17 @@ class SlaController {
       }
 
       const filters = {
-        date_from,
-        date_to,
-        location_id,
-        department_id,
-        asset_category_id,
-        oem_id,
-        product_model,
-        frequency
-      };
+      date_from,
+      date_to,
+      location_id,
+      department_id,
+      asset_category_id,
+      sub_category_id,
+      oem_id,
+      product_model,
+      frequency,
+      met_sla
+    };
 
       const report = await SlaTrackingModel.getSlaComplianceReport(filters);
 
