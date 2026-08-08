@@ -1491,6 +1491,23 @@ Helpdesk
       };
       worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
 
+      // Convert SQL TIME / Date values to HH:mm:ss for Excel
+      const formatTime = (value) => {
+        if (!value) return '';
+      
+        // SQL TIME returned by mssql can come as a Date object
+        if (value instanceof Date) {
+          return value.toISOString().substring(11, 19);
+        }
+      
+        // If returned as string
+        if (typeof value === 'string') {
+          return value.substring(0, 8);
+        }
+      
+        return '';
+      };
+
       // Add data
       tickets.forEach(ticket => {
           worksheet.addRow({
@@ -1513,19 +1530,19 @@ Helpdesk
         
             // Ticket Created
             coordinator_created_date: ticket.coordinator_created_date || '',
-            coordinator_created_time: ticket.coordinator_created_time || '',
+            coordinator_created_time: formatTime(ticket.coordinator_created_time),
         
             // Engineer Assigned
             engineer_assigned_date: ticket.engineer_assigned_date || '',
-            engineer_assigned_time: ticket.engineer_assigned_time || '',
+            engineer_assigned_time: formatTime(ticket.engineer_assigned_time),
         
             // Engineer Completed
             engineer_completed_date: ticket.engineer_completed_date || '',
-            engineer_completed_time: ticket.engineer_completed_time || '',
+            engineer_completed_time: formatTime(ticket.engineer_completed_time),
         
             // Coordinator Closed
             coordinator_closed_date: ticket.coordinator_closed_date || '',
-            coordinator_closed_time: ticket.coordinator_closed_time || '',
+            coordinator_closed_time: formatTime(ticket.coordinator_closed_time),
         
             resolution_notes: ticket.resolution_notes || ''
           });
