@@ -504,10 +504,16 @@ return ticket;
           c.name AS asset_subcategory,
           CAST(t.created_at AS DATE) AS coordinator_created_date,
           CONVERT(VARCHAR(8), t.created_at, 108) AS coordinator_created_time,
+          
           CAST(t.assigned_at AS DATE) AS engineer_assigned_date,
           CONVERT(VARCHAR(8), t.assigned_at, 108) AS engineer_assigned_time,
+          
           CAST(tcr.created_at AS DATE) AS close_request_date,
           CONVERT(VARCHAR(8), tcr.created_at, 108) AS close_request_time,
+          
+          t.coordinator_closed_date AS coordinator_closed_date,
+          CONVERT(VARCHAR(8), t.coordinator_closed_time, 108) AS coordinator_closed_time,
+          
           CAST(t.closed_at AS DATE) AS final_closed_date,
           CONVERT(VARCHAR(8), t.closed_at, 108) AS final_closed_time
         FROM TICKETS t
