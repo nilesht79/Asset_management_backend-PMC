@@ -1495,8 +1495,8 @@ Helpdesk
           coordinator_created_time: ticket.coordinator_created_time || '',
           engineer_assigned_date: ticket.engineer_assigned_date || '',
           engineer_assigned_time: ticket.engineer_assigned_time || '',
-          coordinator_closed_date: ticket.coordinator_closed_date || '',
-          coordinator_closed_time: ticket.coordinator_closed_time || '',
+          coordinator_closed_date: ticket.export_coordinator_closed_date || '',
+          coordinator_closed_time: ticket.export_coordinator_closed_time || '',
           resolution_notes: ticket.resolution_notes || ''
         });
       });
