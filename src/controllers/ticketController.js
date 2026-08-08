@@ -1444,26 +1444,42 @@ Helpdesk
 
       // Define columns
       worksheet.columns = [
-        { header: 'Ticket #', key: 'ticket_number', width: 15 },
-        { header: 'Title', key: 'title', width: 30 },
-        { header: 'Description', key: 'description', width: 40 },
-        { header: 'Status', key: 'status', width: 12 },
-        { header: 'Priority', key: 'priority', width: 12 },
-        { header: 'Category', key: 'category', width: 15 },
-        { header: 'Asset Subcategory', key: 'asset_subcategory', width: 30 },
-        { header: 'Created For', key: 'created_by_user_name', width: 25 },
-        { header: 'Created For Email', key: 'created_by_user_email', width: 30 },
-        { header: 'Assigned To', key: 'engineer_name', width: 25 },
-        { header: 'Engineer Email', key: 'engineer_email', width: 30 },
-        { header: 'Department', key: 'department_name', width: 20 },
-        { header: 'Location', key: 'location_name', width: 20 },
-        { header: 'Coordinator Created Date', key: 'coordinator_created_date', width: 20 },
-        { header: 'Coordinator Created Time', key: 'coordinator_created_time', width: 20 },
-        { header: 'Engineer Assigned Date', key: 'engineer_assigned_date', width: 20 },
-        { header: 'Engineer Assigned Time', key: 'engineer_assigned_time', width: 20 },
-        { header: 'Coordinator Closed Date', key: 'coordinator_closed_date', width: 20 },
-        { header: 'Coordinator Closed Time', key: 'coordinator_closed_time', width: 20 },
-        { header: 'Resolution Notes', key: 'resolution_notes', width: 40 }
+        worksheet.columns = [
+  { header: 'Ticket #', key: 'ticket_number', width: 15 },
+  { header: 'Title', key: 'title', width: 30 },
+  { header: 'Description', key: 'description', width: 40 },
+  { header: 'Status', key: 'status', width: 12 },
+  { header: 'Priority', key: 'priority', width: 12 },
+  { header: 'Category', key: 'category', width: 15 },
+  { header: 'Asset Subcategory', key: 'asset_subcategory', width: 30 },
+
+  { header: 'Created For', key: 'created_by_user_name', width: 25 },
+  { header: 'Created For Email', key: 'created_by_user_email', width: 30 },
+
+  { header: 'Assigned To', key: 'engineer_name', width: 25 },
+  { header: 'Engineer Email', key: 'engineer_email', width: 30 },
+
+  { header: 'Department', key: 'department_name', width: 20 },
+  { header: 'Location', key: 'location_name', width: 20 },
+
+  // Ticket Created
+  { header: 'Coordinator Created Date', key: 'coordinator_created_date', width: 20 },
+  { header: 'Coordinator Created Time', key: 'coordinator_created_time', width: 20 },
+
+  // Engineer Assigned
+  { header: 'Engineer Assigned Date', key: 'engineer_assigned_date', width: 20 },
+  { header: 'Engineer Assigned Time', key: 'engineer_assigned_time', width: 20 },
+
+  // Engineer Completed
+  { header: 'Engineer Completed Date', key: 'engineer_completed_date', width: 20 },
+  { header: 'Engineer Completed Time', key: 'engineer_completed_time', width: 20 },
+
+  // Coordinator Closed
+  { header: 'Coordinator Closed Date', key: 'coordinator_closed_date', width: 20 },
+  { header: 'Coordinator Closed Time', key: 'coordinator_closed_time', width: 20 },
+
+  { header: 'Resolution Notes', key: 'resolution_notes', width: 40 }
+];
       ];
 
       // Style header row
@@ -1477,29 +1493,43 @@ Helpdesk
 
       // Add data
       tickets.forEach(ticket => {
-        worksheet.addRow({
-          ticket_number: ticket.ticket_number,
-          title: ticket.title,
-          description: ticket.description,
-          status: ticket.status,
-          priority: ticket.priority,
-          category: ticket.category,
-          asset_subcategory: ticket.asset_subcategory || '',
-          created_by_user_name: ticket.created_by_user_name,
-          created_by_user_email: ticket.created_by_user_email,
-          engineer_name: ticket.engineer_name || 'Unassigned',
-          engineer_email: ticket.engineer_email || '',
-          department_name: ticket.department_name || '',
-          location_name: ticket.location_name || '',
-          coordinator_created_date: ticket.coordinator_created_date || '',
-          coordinator_created_time: ticket.coordinator_created_time || '',
-          engineer_assigned_date: ticket.engineer_assigned_date || '',
-          engineer_assigned_time: ticket.engineer_assigned_time || '',
-          coordinator_closed_date: ticket.export_coordinator_closed_date || '',
-          coordinator_closed_time: ticket.export_coordinator_closed_time || '',
-          resolution_notes: ticket.resolution_notes || ''
+          worksheet.addRow({
+            ticket_number: ticket.ticket_number,
+            title: ticket.title,
+            description: ticket.description,
+            status: ticket.status,
+            priority: ticket.priority,
+            category: ticket.category,
+            asset_subcategory: ticket.asset_subcategory || '',
+        
+            created_by_user_name: ticket.created_by_user_name,
+            created_by_user_email: ticket.created_by_user_email,
+        
+            engineer_name: ticket.engineer_name || 'Unassigned',
+            engineer_email: ticket.engineer_email || '',
+        
+            department_name: ticket.department_name || '',
+            location_name: ticket.location_name || '',
+        
+            // Ticket Created
+            coordinator_created_date: ticket.coordinator_created_date || '',
+            coordinator_created_time: ticket.coordinator_created_time || '',
+        
+            // Engineer Assigned
+            engineer_assigned_date: ticket.engineer_assigned_date || '',
+            engineer_assigned_time: ticket.engineer_assigned_time || '',
+        
+            // Engineer Completed
+            engineer_completed_date: ticket.engineer_completed_date || '',
+            engineer_completed_time: ticket.engineer_completed_time || '',
+        
+            // Coordinator Closed
+            coordinator_closed_date: ticket.coordinator_closed_date || '',
+            coordinator_closed_time: ticket.coordinator_closed_time || '',
+        
+            resolution_notes: ticket.resolution_notes || ''
+          });
         });
-      });
 
       // Set response headers
       res.setHeader(
