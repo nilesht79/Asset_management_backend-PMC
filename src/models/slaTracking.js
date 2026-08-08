@@ -804,15 +804,46 @@ class SlaTrackingModel {
         request.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
       }
 
+      if (filters.sub_category_id) {
+            whereConditions.push('p.sub_category_id = @subCategoryId');
+        
+            request.input(
+                'subCategoryId',
+                sql.UniqueIdentifier,
+                filters.sub_category_id
+            );
+        }
+
+      if (
+            filters.met_sla !== undefined &&
+            filters.met_sla !== null &&
+            filters.met_sla !== ''
+        ) {
+            if (String(filters.met_sla) === '1') {
+                whereConditions.push(`
+                    tst.final_status <> 'breached'
+                `);
+            } else if (String(filters.met_sla) === '0') {
+                whereConditions.push(`
+                    tst.final_status = 'breached'
+                `);
+            }
+        }
+
       if (filters.oem_id) {
         whereConditions.push('p.oem_id = @oemId');
         request.input('oemId', sql.UniqueIdentifier, filters.oem_id);
       }
 
       if (filters.product_model) {
-        whereConditions.push('p.model LIKE @productModel');
-        request.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
-      }
+            whereConditions.push('p.id = @productModel');
+        
+            request.input(
+                'productModel',
+                sql.UniqueIdentifier,
+                filters.product_model
+            );
+        }
 
       const whereClause = whereConditions.length > 0
         ? 'WHERE ' + whereConditions.join(' AND ')
@@ -846,27 +877,62 @@ class SlaTrackingModel {
 
       // Main compliance query with period breakdown
       const complianceQuery = `
-        SELECT
-          ${periodSelect},
-          COUNT(*) AS total_resolved,
-          SUM(CASE WHEN tst.final_status != 'breached' THEN 1 ELSE 0 END) AS resolved_within_sla,
-          SUM(CASE WHEN tst.final_status = 'breached' THEN 1 ELSE 0 END) AS resolved_breached,
-          CAST(
-            SUM(CASE WHEN tst.final_status != 'breached' THEN 1.0 ELSE 0 END) * 100.0 /
-            NULLIF(COUNT(*), 0)
-          AS DECIMAL(5,2)) AS compliance_rate,
-          AVG(tst.business_elapsed_minutes) AS avg_resolution_minutes,
-          MIN(tst.business_elapsed_minutes) AS min_resolution_minutes,
-          MAX(tst.business_elapsed_minutes) AS max_resolution_minutes
-        FROM TICKET_SLA_TRACKING tst
-        INNER JOIN TICKETS t ON tst.ticket_id = t.ticket_id
-        LEFT JOIN TICKET_ASSETS ta ON t.ticket_id = ta.ticket_id
-        LEFT JOIN assets a ON ta.asset_id = a.id
-        LEFT JOIN products p ON a.product_id = p.id
-        ${whereClause}
-        ${groupByClause}
-        ORDER BY period
-      `;
+    SELECT
+        ${periodSelect},
+
+        COUNT(DISTINCT t.ticket_id) AS total_resolved,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status != 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_within_sla,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status = 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_breached,
+
+        CAST(
+            COUNT(
+                DISTINCT CASE
+                    WHEN tst.final_status != 'breached'
+                    THEN t.ticket_id
+                END
+            ) * 100.0
+            / NULLIF(COUNT(DISTINCT t.ticket_id), 0)
+            AS DECIMAL(5,2)
+        ) AS compliance_rate,
+
+        AVG(tst.business_elapsed_minutes) AS avg_resolution_minutes,
+
+        MIN(tst.business_elapsed_minutes) AS min_resolution_minutes,
+
+        MAX(tst.business_elapsed_minutes) AS max_resolution_minutes
+
+    FROM TICKET_SLA_TRACKING tst
+
+    INNER JOIN TICKETS t
+        ON tst.ticket_id = t.ticket_id
+
+    LEFT JOIN TICKET_ASSETS ta
+        ON t.ticket_id = ta.ticket_id
+
+    LEFT JOIN assets a
+        ON ta.asset_id = a.id
+
+    LEFT JOIN products p
+        ON a.product_id = p.id
+
+    ${whereClause}
+
+    ${groupByClause}
+
+    ORDER BY period
+`;
 
       const complianceResult = await request.query(complianceQuery);
 
@@ -881,22 +947,51 @@ class SlaTrackingModel {
       if (filters.product_model) summaryRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
 
       const summaryQuery = `
-        SELECT
-          COUNT(*) AS total_resolved,
-          SUM(CASE WHEN tst.final_status != 'breached' THEN 1 ELSE 0 END) AS resolved_within_sla,
-          SUM(CASE WHEN tst.final_status = 'breached' THEN 1 ELSE 0 END) AS resolved_breached,
-          CAST(
-            SUM(CASE WHEN tst.final_status != 'breached' THEN 1.0 ELSE 0 END) * 100.0 /
-            NULLIF(COUNT(*), 0)
-          AS DECIMAL(5,2)) AS compliance_rate,
-          AVG(tst.business_elapsed_minutes) AS avg_resolution_minutes
-        FROM TICKET_SLA_TRACKING tst
-        INNER JOIN TICKETS t ON tst.ticket_id = t.ticket_id
-        LEFT JOIN TICKET_ASSETS ta ON t.ticket_id = ta.ticket_id
-        LEFT JOIN assets a ON ta.asset_id = a.id
-        LEFT JOIN products p ON a.product_id = p.id
-        ${whereClause}
-      `;
+    SELECT
+        COUNT(DISTINCT t.ticket_id) AS total_resolved,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status != 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_within_sla,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status = 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_breached,
+
+        CAST(
+            COUNT(
+                DISTINCT CASE
+                    WHEN tst.final_status != 'breached'
+                    THEN t.ticket_id
+                END
+            ) * 100.0
+            / NULLIF(COUNT(DISTINCT t.ticket_id), 0)
+            AS DECIMAL(5,2)
+        ) AS compliance_rate,
+
+        AVG(tst.business_elapsed_minutes) AS avg_resolution_minutes
+
+    FROM TICKET_SLA_TRACKING tst
+    INNER JOIN TICKETS t
+        ON tst.ticket_id = t.ticket_id
+
+    LEFT JOIN TICKET_ASSETS ta
+        ON t.ticket_id = ta.ticket_id
+
+    LEFT JOIN assets a
+        ON ta.asset_id = a.id
+
+    LEFT JOIN products p
+        ON a.product_id = p.id
+
+    ${whereClause}
+`;
 
       const summaryResult = await summaryRequest.query(summaryQuery);
 
@@ -911,25 +1006,62 @@ class SlaTrackingModel {
       if (filters.product_model) locationRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
 
       const locationBreakdownQuery = `
-        SELECT
-          l.id AS location_id,
-          l.name AS location_name,
-          COUNT(*) AS total_resolved,
-          SUM(CASE WHEN tst.final_status != 'breached' THEN 1 ELSE 0 END) AS resolved_within_sla,
-          CAST(
-            SUM(CASE WHEN tst.final_status != 'breached' THEN 1.0 ELSE 0 END) * 100.0 /
-            NULLIF(COUNT(*), 0)
-          AS DECIMAL(5,2)) AS compliance_rate
-        FROM TICKET_SLA_TRACKING tst
-        INNER JOIN TICKETS t ON tst.ticket_id = t.ticket_id
-        LEFT JOIN locations l ON t.location_id = l.id
-        LEFT JOIN TICKET_ASSETS ta ON t.ticket_id = ta.ticket_id
-        LEFT JOIN assets a ON ta.asset_id = a.id
-        LEFT JOIN products p ON a.product_id = p.id
-        ${whereClause}
-        GROUP BY l.id, l.name
-        ORDER BY total_resolved DESC
-      `;
+    SELECT
+        l.id AS location_id,
+        l.name AS location_name,
+
+        COUNT(DISTINCT t.ticket_id) AS total_resolved,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status != 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_within_sla,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status = 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_breached,
+
+        CAST(
+            COUNT(
+                DISTINCT CASE
+                    WHEN tst.final_status != 'breached'
+                    THEN t.ticket_id
+                END
+            ) * 100.0
+            / NULLIF(COUNT(DISTINCT t.ticket_id), 0)
+            AS DECIMAL(5,2)
+        ) AS compliance_rate
+
+    FROM TICKET_SLA_TRACKING tst
+
+    INNER JOIN TICKETS t
+        ON tst.ticket_id = t.ticket_id
+
+    LEFT JOIN locations l
+        ON t.location_id = l.id
+
+    LEFT JOIN TICKET_ASSETS ta
+        ON t.ticket_id = ta.ticket_id
+
+    LEFT JOIN assets a
+        ON ta.asset_id = a.id
+
+    LEFT JOIN products p
+        ON a.product_id = p.id
+
+    ${whereClause}
+
+    GROUP BY
+        l.id,
+        l.name
+
+    ORDER BY total_resolved DESC
+`;
 
       const locationBreakdown = await locationRequest.query(locationBreakdownQuery);
 
@@ -944,25 +1076,62 @@ class SlaTrackingModel {
       if (filters.product_model) deptRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
 
       const deptBreakdownQuery = `
-        SELECT
-          d.department_id,
-          d.department_name,
-          COUNT(*) AS total_resolved,
-          SUM(CASE WHEN tst.final_status != 'breached' THEN 1 ELSE 0 END) AS resolved_within_sla,
-          CAST(
-            SUM(CASE WHEN tst.final_status != 'breached' THEN 1.0 ELSE 0 END) * 100.0 /
-            NULLIF(COUNT(*), 0)
-          AS DECIMAL(5,2)) AS compliance_rate
-        FROM TICKET_SLA_TRACKING tst
-        INNER JOIN TICKETS t ON tst.ticket_id = t.ticket_id
-        LEFT JOIN DEPARTMENT_MASTER d ON t.department_id = d.department_id
-        LEFT JOIN TICKET_ASSETS ta ON t.ticket_id = ta.ticket_id
-        LEFT JOIN assets a ON ta.asset_id = a.id
-        LEFT JOIN products p ON a.product_id = p.id
-        ${whereClause}
-        GROUP BY d.department_id, d.department_name
-        ORDER BY total_resolved DESC
-      `;
+    SELECT
+        d.department_id,
+        d.department_name,
+
+        COUNT(DISTINCT t.ticket_id) AS total_resolved,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status != 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_within_sla,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status = 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_breached,
+
+        CAST(
+            COUNT(
+                DISTINCT CASE
+                    WHEN tst.final_status != 'breached'
+                    THEN t.ticket_id
+                END
+            ) * 100.0
+            / NULLIF(COUNT(DISTINCT t.ticket_id), 0)
+            AS DECIMAL(5,2)
+        ) AS compliance_rate
+
+    FROM TICKET_SLA_TRACKING tst
+
+    INNER JOIN TICKETS t
+        ON tst.ticket_id = t.ticket_id
+
+    LEFT JOIN DEPARTMENT_MASTER d
+        ON t.department_id = d.department_id
+
+    LEFT JOIN TICKET_ASSETS ta
+        ON t.ticket_id = ta.ticket_id
+
+    LEFT JOIN assets a
+        ON ta.asset_id = a.id
+
+    LEFT JOIN products p
+        ON a.product_id = p.id
+
+    ${whereClause}
+
+    GROUP BY
+        d.department_id,
+        d.department_name
+
+    ORDER BY total_resolved DESC
+`;
 
       const deptBreakdown = await deptRequest.query(deptBreakdownQuery);
 
@@ -976,36 +1145,64 @@ class SlaTrackingModel {
       if (filters.oem_id) detailRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
       if (filters.product_model) detailRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
 
-      const detailQuery = `
-        SELECT
-          t.ticket_id,
-          t.ticket_number,
-          t.title,
-          t.category,
-          t.priority,
-          t.status,
-          tst.sla_start_time,
-          tst.resolved_at,
-          tst.final_status,
-          tst.business_elapsed_minutes,
-          sr.rule_name,
-          sr.max_tat_minutes,
-          CASE WHEN tst.final_status != 'breached' THEN 1 ELSE 0 END AS met_sla,
-          l.name AS location_name,
-          d.department_name,
-          u.first_name + ' ' + u.last_name AS engineer_name
-        FROM TICKET_SLA_TRACKING tst
-        INNER JOIN TICKETS t ON tst.ticket_id = t.ticket_id
-        INNER JOIN SLA_RULES sr ON tst.sla_rule_id = sr.rule_id
-        LEFT JOIN locations l ON t.location_id = l.id
-        LEFT JOIN DEPARTMENT_MASTER d ON t.department_id = d.department_id
-        LEFT JOIN USER_MASTER u ON t.assigned_to_engineer_id = u.user_id
-        LEFT JOIN TICKET_ASSETS ta ON t.ticket_id = ta.ticket_id
-        LEFT JOIN assets a ON ta.asset_id = a.id
-        LEFT JOIN products p ON a.product_id = p.id
-        ${whereClause}
-        ORDER BY tst.resolved_at DESC
-      `;
+     const detailQuery = `
+    SELECT DISTINCT
+        t.ticket_id,
+        t.ticket_number,
+        t.title,
+        t.category,
+        t.priority,
+        t.status,
+
+        tst.sla_start_time,
+        tst.resolved_at,
+        tst.final_status,
+        tst.business_elapsed_minutes,
+
+        sr.rule_name,
+        sr.max_tat_minutes,
+
+        CASE
+            WHEN tst.final_status != 'breached'
+            THEN 1
+            ELSE 0
+        END AS met_sla,
+
+        l.name AS location_name,
+        d.department_name,
+
+        u.first_name + ' ' + u.last_name AS engineer_name
+
+    FROM TICKET_SLA_TRACKING tst
+
+    INNER JOIN TICKETS t
+        ON tst.ticket_id = t.ticket_id
+
+    INNER JOIN SLA_RULES sr
+        ON tst.sla_rule_id = sr.rule_id
+
+    LEFT JOIN locations l
+        ON t.location_id = l.id
+
+    LEFT JOIN DEPARTMENT_MASTER d
+        ON t.department_id = d.department_id
+
+    LEFT JOIN USER_MASTER u
+        ON t.assigned_to_engineer_id = u.user_id
+
+    LEFT JOIN TICKET_ASSETS ta
+        ON t.ticket_id = ta.ticket_id
+
+    LEFT JOIN assets a
+        ON ta.asset_id = a.id
+
+    LEFT JOIN products p
+        ON a.product_id = p.id
+
+    ${whereClause}
+
+    ORDER BY tst.resolved_at DESC
+`;
 
       const detailResult = await detailRequest.query(detailQuery);
 
