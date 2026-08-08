@@ -111,8 +111,17 @@ class TicketModel {
               ELSE NULL
           END,
       
-          CAST(GETDATE() AS DATE),
-          CAST(GETDATE() AS TIME),
+         CASE
+              WHEN @createdByCoordinatorId IS NOT NULL
+              THEN CAST(GETDATE() AS DATE)
+              ELSE NULL
+          END,
+          
+          CASE
+              WHEN @createdByCoordinatorId IS NOT NULL
+              THEN CAST(GETDATE() AS TIME)
+              ELSE NULL
+          END,
       
           CASE
               WHEN @assignedToEngineerId IS NOT NULL
@@ -1346,13 +1355,33 @@ ON t.ticket_id = tcr.ticket_id
         .query(insertQuery);
 
       // Update ticket status to pending_closure
-      await pool.request()
-        .input('ticketId', sql.UniqueIdentifier, ticketId)
-        .query(`
-          UPDATE TICKETS
-          SET status = 'pending_closure', updated_at = GETUTCDATE()
-          WHERE ticket_id = @ticketId
-        `);
+      // Engineer has completed the work and submitted the ticket
+// for coordinator approval.
+await pool.request()
+  .input('ticketId', sql.UniqueIdentifier, ticketId)
+  .query(`
+    UPDATE TICKETS
+    SET
+      status = 'pending_closure',
+
+      engineer_completed_date =
+        CASE
+          WHEN engineer_completed_date IS NULL
+          THEN CAST(GETDATE() AS DATE)
+          ELSE engineer_completed_date
+        END,
+
+      engineer_completed_time =
+        CASE
+          WHEN engineer_completed_time IS NULL
+          THEN CAST(GETDATE() AS TIME)
+          ELSE engineer_completed_time
+        END,
+
+      updated_at = GETUTCDATE()
+
+    WHERE ticket_id = @ticketId
+  `);
 
       return result.recordset[0];
     } catch (error) {
@@ -1557,7 +1586,7 @@ ON t.ticket_id = tcr.ticket_id
           .input('ticketId', sql.UniqueIdentifier, ticketId)
           .input('resolutionNotes', sql.NVarChar(sql.MAX), closeRequest.request_notes)
           .query(`
-            UPDATE TICKETS
+           UPDATE TICKETS
                 SET
                     status = 'closed',
                 
@@ -1566,9 +1595,6 @@ ON t.ticket_id = tcr.ticket_id
                         ELSE resolved_at
                     END,
                 
-                    engineer_completed_date = CAST(GETDATE() AS DATE),
-                    engineer_completed_time = CAST(GETDATE() AS TIME),
-                
                     coordinator_closed_date = CAST(GETDATE() AS DATE),
                     coordinator_closed_time = CAST(GETDATE() AS TIME),
                 
@@ -1576,7 +1602,8 @@ ON t.ticket_id = tcr.ticket_id
                 
                     resolution_notes = @resolutionNotes,
                     updated_at = GETUTCDATE()
-            WHERE ticket_id = @ticketId
+                
+                WHERE ticket_id = @ticketId
           `);
 
         // Stop SLA tracking - important for compliance report
