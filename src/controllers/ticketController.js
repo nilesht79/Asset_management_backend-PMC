@@ -1443,7 +1443,7 @@ Helpdesk
       const worksheet = workbook.addWorksheet('Tickets');
 
       // Define columns
-      worksheet.columns = [
+      
         worksheet.columns = [
   { header: 'Ticket #', key: 'ticket_number', width: 15 },
   { header: 'Title', key: 'title', width: 30 },
@@ -1480,7 +1480,7 @@ Helpdesk
 
   { header: 'Resolution Notes', key: 'resolution_notes', width: 40 }
 ];
-      ];
+     
 
       // Style header row
       worksheet.getRow(1).font = { bold: true };
