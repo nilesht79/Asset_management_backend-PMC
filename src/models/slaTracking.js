@@ -31,7 +31,20 @@ class SlaTrackingModel {
       const rule = matchResult.rule;
 
       // Calculate deadlines
-      const now = new Date();
+      // Calculate deadlines using the actual ticket creation time
+      const ticketResult = await pool.request()
+        .input('ticketId', sql.UniqueIdentifier, ticketId)
+        .query(`
+          SELECT created_at
+          FROM TICKETS
+          WHERE ticket_id = @ticketId
+        `);
+      
+      if (ticketResult.recordset.length === 0) {
+        throw new Error('Ticket not found while initializing SLA tracking');
+      }
+      
+      const now = new Date(ticketResult.recordset[0].created_at);
       const minDeadline = await businessHoursCalculator.calculateDeadline(
         now,
         rule.min_tat_minutes,
@@ -369,45 +382,179 @@ class SlaTrackingModel {
   /**
    * Stop SLA tracking (ticket closed)
    */
+  // static async stopTracking(ticketId, finalStatus) {
+  //   try {
+  //     const pool = await connectDB();
+
+  //     // First update elapsed time
+  //     await this.updateElapsedTime(ticketId);
+
+  //     // Get tracking record
+  //     const tracking = await this.getTracking(ticketId);
+  //     if (!tracking) {
+  //       return null;
+  //     }
+
+  //     // If paused, close the pause first
+  //     if (tracking.is_paused) {
+  //       await this.resumeTimer(ticketId, null);
+  //     }
+
+  //     // Stop tracking
+  //     const query = `
+  //       UPDATE TICKET_SLA_TRACKING SET
+  //         resolved_at = GETUTCDATE(),
+  //         final_status = @finalStatus,
+  //         updated_at = GETUTCDATE()
+  //       OUTPUT INSERTED.*
+  //       WHERE tracking_id = @trackingId
+  //     `;
+
+  //     const result = await pool.request()
+  //       .input('trackingId', sql.UniqueIdentifier, tracking.tracking_id)
+  //       .input('finalStatus', sql.NVarChar(20), finalStatus || tracking.sla_status)
+  //       .query(query);
+
+  //     return result.recordset[0];
+  //   } catch (error) {
+  //     console.error('Error stopping SLA tracking:', error);
+  //     throw error;
+  //   }
+  // }
+
   static async stopTracking(ticketId, finalStatus) {
-    try {
-      const pool = await connectDB();
+  try {
+    const pool = await connectDB();
 
-      // First update elapsed time
-      await this.updateElapsedTime(ticketId);
+    // Get the actual ticket resolution time
+    const ticketResult = await pool.request()
+      .input('ticketId', sql.UniqueIdentifier, ticketId)
+      .query(`
+        SELECT
+          resolved_at,
+          status
+        FROM TICKETS
+        WHERE ticket_id = @ticketId
+      `);
 
-      // Get tracking record
-      const tracking = await this.getTracking(ticketId);
-      if (!tracking) {
-        return null;
-      }
-
-      // If paused, close the pause first
-      if (tracking.is_paused) {
-        await this.resumeTimer(ticketId, null);
-      }
-
-      // Stop tracking
-      const query = `
-        UPDATE TICKET_SLA_TRACKING SET
-          resolved_at = GETUTCDATE(),
-          final_status = @finalStatus,
-          updated_at = GETUTCDATE()
-        OUTPUT INSERTED.*
-        WHERE tracking_id = @trackingId
-      `;
-
-      const result = await pool.request()
-        .input('trackingId', sql.UniqueIdentifier, tracking.tracking_id)
-        .input('finalStatus', sql.NVarChar(20), finalStatus || tracking.sla_status)
-        .query(query);
-
-      return result.recordset[0];
-    } catch (error) {
-      console.error('Error stopping SLA tracking:', error);
-      throw error;
+    if (ticketResult.recordset.length === 0) {
+      throw new Error('Ticket not found');
     }
+
+    const ticket = ticketResult.recordset[0];
+
+    if (!ticket.resolved_at) {
+      throw new Error(
+        'Ticket resolved_at is NULL. SLA tracking cannot be stopped yet.'
+      );
+    }
+
+    // First calculate elapsed time using the actual ticket resolution time
+    const trackingResult = await pool.request()
+      .input('ticketId', sql.UniqueIdentifier, ticketId)
+      .query(`
+        SELECT
+          tst.*,
+          sr.min_tat_minutes,
+          sr.avg_tat_minutes,
+          sr.max_tat_minutes,
+          sr.business_hours_schedule_id,
+          sr.holiday_calendar_id
+        FROM TICKET_SLA_TRACKING tst
+        INNER JOIN SLA_RULES sr
+          ON tst.sla_rule_id = sr.rule_id
+        WHERE tst.ticket_id = @ticketId
+      `);
+
+    if (trackingResult.recordset.length === 0) {
+      return null;
+    }
+
+    const tracking = trackingResult.recordset[0];
+
+    // If paused, close the pause first
+    if (tracking.is_paused) {
+      await this.resumeTimer(ticketId, null);
+    }
+
+    // Get pause periods
+    const pauseResult = await pool.request()
+      .input('trackingId', sql.UniqueIdentifier, tracking.tracking_id)
+      .query(`
+        SELECT
+          p.action_at AS pause_start,
+          r.action_at AS pause_end
+        FROM TICKET_SLA_PAUSE_LOG p
+        LEFT JOIN TICKET_SLA_PAUSE_LOG r
+          ON p.tracking_id = r.tracking_id
+          AND r.action = 'resumed'
+          AND r.action_at > p.action_at
+          AND NOT EXISTS (
+            SELECT 1
+            FROM TICKET_SLA_PAUSE_LOG p2
+            WHERE p2.tracking_id = p.tracking_id
+              AND p2.action = 'paused'
+              AND p2.action_at > p.action_at
+              AND p2.action_at < r.action_at
+          )
+        WHERE p.tracking_id = @trackingId
+          AND p.action = 'paused'
+          AND r.action_at IS NOT NULL
+      `);
+
+    const pausePeriods = pauseResult.recordset;
+
+    // Calculate elapsed business minutes until ACTUAL ticket resolved_at
+    const elapsedMinutes =
+      await businessHoursCalculator.calculateElapsedMinutes(
+        new Date(tracking.sla_start_time),
+        new Date(ticket.resolved_at),
+        tracking.business_hours_schedule_id,
+        tracking.holiday_calendar_id,
+        pausePeriods
+      );
+
+    // Calculate final SLA status
+    const slaStatus = businessHoursCalculator.calculateSlaStatus(
+      elapsedMinutes,
+      tracking.min_tat_minutes,
+      tracking.avg_tat_minutes,
+      tracking.max_tat_minutes
+    );
+
+    // Update SLA tracking
+    const query = `
+      UPDATE TICKET_SLA_TRACKING
+      SET
+        business_elapsed_minutes = @elapsedMinutes,
+        sla_status = @slaStatus,
+        resolved_at = @resolvedAt,
+        final_status = @finalStatus,
+        last_calculated_at = GETUTCDATE(),
+        updated_at = GETUTCDATE()
+      OUTPUT INSERTED.*
+      WHERE tracking_id = @trackingId
+    `;
+
+    const result = await pool.request()
+      .input('trackingId', sql.UniqueIdentifier, tracking.tracking_id)
+      .input('elapsedMinutes', sql.Int, elapsedMinutes)
+      .input('slaStatus', sql.NVarChar(20), slaStatus.status)
+      .input('resolvedAt', sql.DateTime, new Date(ticket.resolved_at))
+      .input(
+        'finalStatus',
+        sql.NVarChar(20),
+        finalStatus || slaStatus.status
+      )
+      .query(query);
+
+    return result.recordset[0];
+
+  } catch (error) {
+    console.error('Error stopping SLA tracking:', error);
+    throw error;
   }
+}
 
   /**
    * Get pause history for a ticket
