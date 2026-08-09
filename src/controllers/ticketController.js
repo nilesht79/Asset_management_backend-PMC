@@ -22,6 +22,24 @@ class TicketController {
    */
   static async createTicket(req, res) {
     try {
+      // const {
+      //   is_guest,
+      //   guest_name,
+      //   guest_email,
+      //   guest_phone,
+      //   created_by_user_id,
+      //   title,
+      //   description,
+      //   priority,
+      //   category,
+      //   ticket_type,
+      //   service_type,
+      //   assigned_to_engineer_id,
+      //   due_date,
+      //   asset_ids, // Optional array of asset IDs to link to ticket (for Hardware category)
+      //   software_installation_ids // Optional array of software installation IDs (for Software category)
+      // } = req.body;
+
       const {
         is_guest,
         guest_name,
@@ -34,15 +52,27 @@ class TicketController {
         category,
         ticket_type,
         service_type,
-        assigned_to_engineer_id,
+        assigned_to_engineer_id: requestedEngineerId,
         due_date,
-        asset_ids, // Optional array of asset IDs to link to ticket (for Hardware category)
-        software_installation_ids // Optional array of software installation IDs (for Software category)
+        asset_ids,
+        software_installation_ids
       } = req.body;
 
       // Get creator ID from authenticated user
       const authUserId = req.user?.id || req.oauth?.user?.id;
       const authUserRole = req.user?.role || req.oauth?.user?.role;
+
+      // Determine engineer assignment
+        let assigned_to_engineer_id = requestedEngineerId;
+        
+        // Engineers can ONLY assign tickets to themselves
+        if (authUserRole === 'engineer') {
+          if (!authUserId) {
+            return sendError(res, 'Authenticated engineer ID not found', 401);
+          }
+        
+          assigned_to_engineer_id = authUserId;
+        }
 
       // For employees, they create tickets for themselves
       // For coordinators/admins, they can create on behalf of someone else
@@ -52,12 +82,28 @@ class TicketController {
       // Employee-like roles that create tickets for themselves (self-service)
       const selfServiceRoles = ['employee', 'dept_head', 'it_head'];
 
+      // if (selfServiceRoles.includes(authUserRole)) {
+      //   // Self-service: employees create tickets for themselves
+      //   ticketCreatorId = authUserId;
+      //   coordinatorId = null; // No coordinator for self-service
+      // } else {
+      //   // Coordinators/Admins/Engineers create on behalf of employees
+      //   coordinatorId = authUserId;
+      // }
+
       if (selfServiceRoles.includes(authUserRole)) {
-        // Self-service: employees create tickets for themselves
+        // Self-service users create tickets for themselves
         ticketCreatorId = authUserId;
-        coordinatorId = null; // No coordinator for self-service
+        coordinatorId = null;
+      
+      } else if (authUserRole === 'engineer') {
+        // Engineer creates ticket for himself
+        // Engineer is NOT a coordinator
+        ticketCreatorId = authUserId;
+        coordinatorId = null;
+      
       } else {
-        // Coordinators/Admins/Engineers create on behalf of employees
+        // Coordinator/Admin creates ticket on behalf of employee
         coordinatorId = authUserId;
       }
 
@@ -610,6 +656,21 @@ Helpdesk
       const { asset_ids, software_installation_ids, ...updateData } = req.body;
       const authUserId = req.oauth?.user?.id || req.user?.id;
 
+      const authUserRole = req.oauth?.user?.role || req.user?.role;
+
+      // Engineers can only assign tickets to themselves
+      if (
+        authUserRole === 'engineer' &&
+        updateData.assigned_to_engineer_id &&
+        updateData.assigned_to_engineer_id !== authUserId
+      ) {
+        return sendError(
+          res,
+          'Engineers can only assign tickets to themselves.',
+          403
+        );
+      }
+
       // Check if ticket exists
       const existingTicket = await TicketModel.getTicketById(id);
       if (!existingTicket) {
@@ -948,7 +1009,22 @@ Helpdesk
     try {
       const { id } = req.params;
       const { engineer_id } = req.body;
-
+      
+      const authUserId = req.oauth?.user?.id || req.user?.id;
+      const authUserRole = req.oauth?.user?.role || req.user?.role;
+      
+      // Engineers can ONLY assign tickets to themselves
+      if (
+        authUserRole === 'engineer' &&
+        engineer_id !== authUserId
+      ) {
+        return sendError(
+          res,
+          'Engineers can only assign tickets to themselves.',
+          403
+        );
+      }
+      
       if (!engineer_id) {
         return sendError(res, 'Engineer ID is required', 400);
       }
