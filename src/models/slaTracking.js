@@ -1382,7 +1382,7 @@ const subCategoryBreakdownQuery = `
         sc.id AS sub_category_id,
         sc.name AS sub_category_name,
 
-        COUNT(DISTINCT t.ticket_id) AS total_resolved,
+       COUNT(DISTINCT t.ticket_id) AS total_tickets,
 
         COUNT(
             DISTINCT CASE
