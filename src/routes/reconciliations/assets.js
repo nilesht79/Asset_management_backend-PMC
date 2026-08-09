@@ -61,6 +61,13 @@ const bulkReconcileSchema = Joi.object({
  * @returns {Array} Array of discrepancy objects
  */
 function detectDiscrepancies(systemSnapshot, physicalValues, assetData = {}) {
+
+    console.log('========== DEBUG ==========');
+  console.log('SYSTEM SNAPSHOT:', systemSnapshot);
+  console.log('PHYSICAL VALUES:', physicalValues);
+
+  console.log('SYSTEM DEPARTMENT:', systemSnapshot.department);
+  console.log('PHYSICAL DEPARTMENT:', physicalValues.physical_department);
   const discrepancies = [];
 
   // Helper to get user display name
@@ -146,6 +153,27 @@ function detectDiscrepancies(systemSnapshot, physicalValues, assetData = {}) {
       });
     }
   }
+
+
+  // 6. Department discrepancy
+if (
+  physicalValues.physical_department &&
+  systemSnapshot.department
+) {
+  if (
+    physicalValues.physical_department.trim().toLowerCase() !==
+    systemSnapshot.department.trim().toLowerCase()
+  ) {
+    discrepancies.push({
+      field_name: 'department',
+      field_display_name: 'Department',
+      system_value: systemSnapshot.department,
+      physical_value: physicalValues.physical_department,
+      discrepancy_type: 'department_mismatch',
+      severity: 'major'
+    });
+  }
+}
 
   return discrepancies;
 }
@@ -317,10 +345,19 @@ router.get('/',
         CONCAT(u.first_name, ' ', u.last_name) as assigned_user_name,
         u.email as assigned_user_email,
         d.department_name as department,
-        l.name as location_name,
-        l.building as location_building,
-        l.floor as location_floor,
-        l.address as location_address,
+        CONCAT(
+            l.name,
+            CASE
+                WHEN l.floor IS NOT NULL
+                     AND LTRIM(RTRIM(CAST(l.floor AS VARCHAR(20)))) <> ''
+                THEN ' - Floor ' + CAST(l.floor AS VARCHAR(20))
+                ELSE ''
+            END
+        ) AS location_name,
+        
+        l.building AS location_building,
+        l.floor AS location_floor,
+        l.address AS location_address,
         -- Reconciliation record data
         rr.id as reconciliation_record_id,
         rr.reconciliation_status,
@@ -337,7 +374,7 @@ router.get('/',
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
       LEFT JOIN DEPARTMENT_MASTER d ON u.department_id = d.department_id
-      LEFT JOIN locations l ON u.location_id = l.id
+      LEFT JOIN locations l ON a.location_id = l.id
       LEFT JOIN RECONCILIATION_RECORDS rr ON rr.asset_id = a.id AND rr.reconciliation_id = @reconciliationId
       LEFT JOIN USER_MASTER reconciler ON rr.reconciled_by = reconciler.user_id
       WHERE ${whereClause}
@@ -496,15 +533,25 @@ router.put('/:assetId/reconcile',
   validateBody(reconcileAssetSchema),
   asyncHandler(async (req, res) => {
     const { id: reconciliationId, assetId } = req.params;
+    // const {
+    //   reconciliation_status,
+    //   physical_location,
+    //   physical_condition,
+    //   physical_assigned_to,
+    //   physical_serial_number,
+    //   physical_status,
+    //   discrepancy_notes
+    // } = req.body;
     const {
-      reconciliation_status,
-      physical_location,
-      physical_condition,
-      physical_assigned_to,
-      physical_serial_number,
-      physical_status,
-      discrepancy_notes
-    } = req.body;
+        reconciliation_status,
+        physical_location,
+        physical_condition,
+        physical_assigned_to,
+        physical_serial_number,
+        physical_status,
+        physical_department,
+        discrepancy_notes
+      } = req.body;
     const userId = req.user.id;
 
     const pool = await connectDB();
@@ -547,30 +594,73 @@ router.put('/:assetId/reconcile',
       recordId = uuidv4();
 
       // Get asset snapshot
+      // const assetSnapshot = await pool.request()
+      //   .input('assetId', sql.UniqueIdentifier, assetId)
+      //   .query(`
+      //     SELECT
+      //         a.*,
+      //         p.name as product_name,
+      //         CONCAT(u.first_name, ' ', u.last_name) as assigned_user_name,
+      //         d.department_name as department,
+      //         CONCAT(
+      //             l.name,
+      //             CASE
+      //                 WHEN l.floor IS NOT NULL
+      //                 THEN ' - Floor ' + CAST(l.floor AS VARCHAR(20))
+      //                 ELSE ''
+      //             END
+      //         ) as location_name
+      //     FROM assets a
+      //     LEFT JOIN products p ON a.product_id = p.id
+      //     LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
+      //     LEFT JOIN DEPARTMENT_MASTER d ON u.department_id = d.department_id
+      //     LEFT JOIN LOCATIONS l ON a.location_id = l.id
+      //     WHERE a.id = @assetId
+      //   `);
+
       const assetSnapshot = await pool.request()
-        .input('assetId', sql.UniqueIdentifier, assetId)
-        .query(`
-          SELECT
-            a.*,
-            p.name as product_name,
-            CONCAT(u.first_name, ' ', u.last_name) as assigned_user_name
-          FROM assets a
-          LEFT JOIN products p ON a.product_id = p.id
-          LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-          WHERE a.id = @assetId
-        `);
+  .input('assetId', sql.UniqueIdentifier, assetId)
+  .query(`
+    SELECT
+      a.*,
+      p.name as product_name,
+      CONCAT(u.first_name, ' ', u.last_name) as assigned_user_name,
+      d.department_name as department,
+      CONCAT(
+    l.name,
+    CASE
+        WHEN l.floor IS NOT NULL
+             AND LTRIM(RTRIM(CAST(l.floor AS VARCHAR(20)))) <> ''
+        THEN ' - Floor ' + CAST(l.floor AS VARCHAR(20))
+        ELSE ''
+    END
+) AS location_name
+    FROM assets a
+    LEFT JOIN products p ON a.product_id = p.id
+    LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
+    LEFT JOIN DEPARTMENT_MASTER d
+      ON u.department_id = d.department_id
+    LEFT JOIN LOCATIONS l
+      ON a.location_id = l.id
+    WHERE a.id = @assetId
+  `);
 
       const asset = assetSnapshot.recordset[0];
       const systemSnapshot = JSON.stringify({
-        asset_tag: asset.asset_tag,
-        serial_number: asset.serial_number,
-        status: asset.status,
-        assigned_to: asset.assigned_to,
-        assigned_user_name: asset.assigned_user_name,
-        product_name: asset.product_name,
-        snapshot_time: new Date().toISOString()
-      });
+  asset_tag: asset.asset_tag,
+  serial_number: asset.serial_number,
+  status: asset.status,
+  assigned_to: asset.assigned_to,
+  assigned_user_name: asset.assigned_user_name,
+  department: asset.department,
+  location_name: asset.location_name,
+  condition_status: asset.condition_status,
+  product_name: asset.product_name,
+  snapshot_time: new Date().toISOString()
+});
 
+console.log("ASSET SNAPSHOT:", asset);
+console.log("SYSTEM SNAPSHOT:", systemSnapshot);
       await pool.request()
         .input('id', sql.UniqueIdentifier, recordId)
         .input('reconciliationId', sql.UniqueIdentifier, reconciliationId)
@@ -603,6 +693,7 @@ router.put('/:assetId/reconcile',
 
     const record = recordData.recordset[0];
     const systemSnapshot = record.system_snapshot ? JSON.parse(record.system_snapshot) : {};
+    console.log("SYSTEM SNAPSHOT FROM DB:", systemSnapshot);
 
     // Use transaction for atomic operations
     const transaction = new sql.Transaction(pool);
@@ -650,13 +741,33 @@ router.put('/:assetId/reconcile',
         }
       }
 
+      // const physicalValues = {
+      //   physical_location,
+      //   physical_condition,
+      //   physical_assigned_to,
+      //   physical_assigned_to_name: physicalAssignedToName,
+      //   physical_serial_number,
+      //   physical_status
+      // };
+
+      // const physicalValues = {
+      //   physical_location,
+      //   physical_condition,
+      //   physical_assigned_to,
+      //   physical_assigned_to_name: physicalAssignedToName,
+      //   physical_serial_number,
+      //   physical_status,
+      //   physical_department
+      // };
+
       const physicalValues = {
         physical_location,
         physical_condition,
         physical_assigned_to,
         physical_assigned_to_name: physicalAssignedToName,
         physical_serial_number,
-        physical_status
+        physical_status,
+        physical_department
       };
 
       const assetData = {
