@@ -348,6 +348,205 @@ const assignStandbyAsset = async (req, res) => {
   }
 };
 
+
+/**
+ * Reassign Standby Asset
+ * PUT /api/v1/standby-assignments/:id/reassign
+ *
+ * Updates ONLY STANDBY_ASSIGNMENTS table.
+ * Does NOT update assets table.
+ */
+const reassignStandbyAsset = async (req, res) => {
+  try {
+    const { id: assignmentId } = req.params;
+
+    const {
+      user_id,
+      notes
+    } = req.body;
+
+    const performedBy = req.user?.id;
+
+    const pool = await connectDB();
+
+    // Check assignment exists
+    const assignmentResult = await pool.request()
+      .input('assignmentId', sql.UniqueIdentifier, assignmentId)
+      .query(`
+        SELECT *
+        FROM STANDBY_ASSIGNMENTS
+        WHERE id=@assignmentId
+      `);
+
+    if (assignmentResult.recordset.length === 0) {
+      return sendNotFound(res, 'Standby assignment not found');
+    }
+
+    // Check user exists
+    const userResult = await pool.request()
+      .input('userId', sql.UniqueIdentifier, user_id)
+      .query(`
+        SELECT user_id
+        FROM USER_MASTER
+        WHERE user_id=@userId
+          AND is_active=1
+      `);
+
+    if (userResult.recordset.length === 0) {
+      return sendNotFound(res, 'User not found');
+    }
+
+    // Update ONLY standby assignment
+    // await pool.request()
+    //   .input('assignmentId', sql.UniqueIdentifier, assignmentId)
+    //   .input('userId', sql.UniqueIdentifier, user_id)
+    //   .input('notes', sql.NVarChar(sql.MAX), notes || '')
+    //   .input('updatedBy', sql.UniqueIdentifier, performedBy)
+    //   .query(`
+    //     UPDATE STANDBY_ASSIGNMENTS
+    //     SET
+    //         user_id=@userId,
+    //         notes=@notes,
+    //         updated_by=@updatedBy,
+    //         updated_at=GETUTCDATE()
+    //     WHERE id=@assignmentId
+    //   `);
+
+
+  await pool.request()
+  .input('assignmentId', sql.UniqueIdentifier, assignmentId)
+  .input('userId', sql.UniqueIdentifier, user_id)
+  .input('notes', sql.NVarChar(sql.MAX), notes || '')
+  .query(`
+      UPDATE STANDBY_ASSIGNMENTS
+      SET
+          user_id = @userId,
+          notes = @notes,
+          status = 'active'
+      WHERE id = @assignmentId
+  `);
+  
+
+ await pool.request()
+  .input('assetId', sql.UniqueIdentifier, assignmentResult.recordset[0].standby_asset_id)
+  .input('userId', sql.UniqueIdentifier, user_id)
+  .query(`
+      UPDATE assets
+      SET
+          assigned_to=@userId,
+          standby_available=0,
+          status='assigned',
+          updated_at=GETUTCDATE()
+      WHERE id=@assetId
+  `);
+
+    const updated = await pool.request()
+      .input('assignmentId', sql.UniqueIdentifier, assignmentId)
+      .query(`
+        SELECT *
+        FROM STANDBY_ASSIGNMENTS
+        WHERE id=@assignmentId
+      `);
+
+    return sendSuccess(
+      res,
+      {
+        assignment: updated.recordset[0]
+      },
+      'Standby asset reassigned successfully'
+    );
+
+  } catch (error) {
+    console.error(error);
+    return sendError(res, 'Failed to reassign standby asset', 500);
+  }
+};
+
+/**
+ * Unassign Standby Asset
+ * PUT /api/v1/standby-assignments/:id/unassign
+ */
+/**
+ * Unassign Standby Asset
+ * PUT /api/v1/standby-assignments/:id/unassign
+ */
+const unassignStandbyAsset = async (req, res) => {
+  try {
+    const { id: assignmentId } = req.params;
+    const performedBy = req.user?.id;
+
+    const pool = await connectDB();
+
+    const transaction = pool.transaction();
+    await transaction.begin();
+
+    try {
+
+      // Check active assignment
+      const assignmentResult = await transaction.request()
+        .input('assignmentId', sql.UniqueIdentifier, assignmentId)
+        .query(`
+          SELECT *
+          FROM STANDBY_ASSIGNMENTS
+          WHERE id=@assignmentId
+        `);
+
+      if (assignmentResult.recordset.length === 0) {
+        await transaction.rollback();
+        return sendNotFound(res, 'Standby assignment not found');
+      }
+
+      const assignment = assignmentResult.recordset[0];
+
+      // Step 1 - Update standby assignment
+     await transaction.request()
+  .input('assignmentId', sql.UniqueIdentifier, assignmentId)
+  .input('returnedBy', sql.UniqueIdentifier, performedBy)
+  .query(`
+      UPDATE STANDBY_ASSIGNMENTS
+      SET
+          status='returned',
+          actual_return_date=GETUTCDATE(),
+          returned_by=@returnedBy,
+          returned_at=GETUTCDATE()
+      WHERE id=@assignmentId
+  `);
+
+      // Step 2 - Make standby asset available again
+      await transaction.request()
+  .input('assetId', sql.UniqueIdentifier, assignment.standby_asset_id)
+  .query(`
+      UPDATE assets
+      SET
+          assigned_to=NULL,
+          standby_available=1,
+          status='available',
+          updated_at=GETUTCDATE()
+      WHERE id=@assetId
+  `);
+
+      await transaction.commit();
+
+      return sendSuccess(
+        res,
+        {
+          assignment_id: assignmentId,
+          standby_asset_id: assignment.standby_asset_id
+        },
+        'Standby asset unassigned successfully'
+      );
+
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Error unassigning standby asset:', error);
+    return sendError(res, 'Failed to unassign standby asset', 500);
+  }
+};
+
 /**
  * Return standby asset and swap back to original
  * PUT /api/v1/standby-assignments/:id/return
@@ -685,6 +884,8 @@ const getAssetStandbyHistory = async (req, res) => {
 module.exports = {
   getStandbyAssignments,
   assignStandbyAsset,
+  reassignStandbyAsset,
+  unassignStandbyAsset,
   returnStandbyAsset,
   makeAssignmentPermanent,
   getUserStandbyHistory,
