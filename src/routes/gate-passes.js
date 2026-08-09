@@ -100,28 +100,113 @@ router.get('/',
     }
 
     // Main query
+    // const query = `
+    //   SELECT
+    //     gp.id,
+    //     gp.gate_pass_number,
+    //     gp.gate_pass_type,
+    //     gp.purpose,
+    //     gp.from_location_name,
+    //     gp.vendor_name,
+    //     gp.destination_address,
+    //     gp.recipient_name,
+    //     gp.recipient_department,
+    //     gp.authorized_by_name,
+    //     gp.issue_date,
+    //     gp.valid_until,
+    //     gp.created_by_name,
+    //     gp.created_at,
+    //     gp.carrier_name,
+    //     (SELECT COUNT(*) FROM GATE_PASS_ASSETS WHERE gate_pass_id = gp.id) as asset_count
+    //   FROM GATE_PASSES gp
+    //   WHERE 1=1 ${filterConditions}
+    //   ORDER BY gp.created_at DESC
+    //   OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+    // `;
+
     const query = `
       SELECT
-        gp.id,
-        gp.gate_pass_number,
-        gp.gate_pass_type,
-        gp.purpose,
-        gp.from_location_name,
-        gp.vendor_name,
-        gp.destination_address,
-        gp.recipient_name,
-        gp.recipient_department,
-        gp.authorized_by_name,
-        gp.issue_date,
-        gp.valid_until,
-        gp.created_by_name,
-        gp.created_at,
-        gp.carrier_name,
-        (SELECT COUNT(*) FROM GATE_PASS_ASSETS WHERE gate_pass_id = gp.id) as asset_count
+
+          gp.id,
+          gp.gate_pass_number,
+      
+          gpa.asset_tag,
+          gpa.serial_number,
+      
+          gpa.category_name,
+          gpa.subcategory_name,
+      
+          gpa.product_name,
+          gpa.model,
+      
+          gp.gate_pass_type,
+          gp.purpose,
+      
+          gp.from_location_name,
+      
+          gp.vendor_name,
+          gp.destination_address,
+      
+          gp.recipient_name,
+          gp.recipient_department,
+      
+          gp.authorized_by_name,
+      
+          gp.issue_date,
+          gp.valid_until,
+      
+          gp.created_by_name,
+          gp.created_at,
+      
+          gp.carrier_name,
+      
+          (
+              SELECT COUNT(*)
+              FROM GATE_PASS_ASSETS
+              WHERE gate_pass_id = gp.id
+          ) AS asset_count
+      
       FROM GATE_PASSES gp
-      WHERE 1=1 ${filterConditions}
-      ORDER BY gp.created_at DESC
-      OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+
+    OUTER APPLY
+    (
+        SELECT TOP 1
+    
+            gpa.asset_tag,
+            gpa.serial_number,
+    
+            p.name AS product_name,
+            p.model,
+    
+            c.name AS category_name,
+            sc.name AS subcategory_name
+    
+        FROM GATE_PASS_ASSETS gpa
+    
+        LEFT JOIN ASSETS a
+            ON a.id = gpa.asset_id
+    
+        LEFT JOIN PRODUCTS p
+            ON a.product_id = p.id
+    
+        LEFT JOIN CATEGORIES c
+            ON p.category_id = c.id
+    
+        LEFT JOIN CATEGORIES sc
+            ON p.subcategory_id = sc.id
+    
+        WHERE gpa.gate_pass_id = gp.id
+    
+        ORDER BY gpa.asset_tag
+    
+    ) gpa
+
+    WHERE 1=1
+    ${filterConditions}
+    
+    ORDER BY gp.created_at DESC
+    OFFSET @offset ROWS
+    FETCH NEXT @limit ROWS ONLY;
     `;
 
     request.input('offset', sql.Int, offset);
@@ -217,8 +302,7 @@ router.get('/assets/search',
         LEFT JOIN products p ON a.product_id = p.id
         LEFT JOIN oems oem ON p.oem_id = oem.id
         LEFT JOIN categories cat ON p.category_id = cat.id
-        LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-        LEFT JOIN locations l ON u.location_id = l.id
+        LEFT JOIN locations l ON a.location_id = l.id
         WHERE (a.asset_tag LIKE @search OR a.serial_number LIKE @search OR p.name LIKE @search)
           AND a.is_active = 1
           AND a.status NOT IN ('disposed', 'scrapped')
@@ -228,6 +312,84 @@ router.get('/assets/search',
     sendSuccess(res, result.recordset, 'Assets retrieved successfully');
   })
 );
+
+/**
+ * GET /api/v1/gate-passes/users/:userId/assets
+ * Get assets assigned to selected user
+ */
+router.get(
+  '/users/:userId/assets',
+  requireRole([
+    USER_ROLES.ADMIN,
+    USER_ROLES.SUPERADMIN,
+    USER_ROLES.COORDINATOR,
+    USER_ROLES.IT_HEAD
+  ]),
+  asyncHandler(async (req, res) => {
+
+    const { userId } = req.params;
+
+    const pool = await connectDB();
+
+    const result = await pool.request()
+      .input('userId', sql.UniqueIdentifier, userId)
+      .query(`
+        SELECT
+            a.id,
+            a.asset_tag,
+            a.serial_number,
+            a.status,
+            a.condition_status,
+            a.asset_type,
+            a.parent_asset_id,
+
+            p.name as product_name,
+            p.model,
+
+            oem.name as oem_name,
+            cat.name as category_name,
+
+            u.first_name + ' ' + u.last_name as assigned_to_name,
+
+            l.id as location_id,
+            l.name as location_name,
+
+            (
+                SELECT COUNT(*)
+                FROM ASSETS
+                WHERE parent_asset_id = a.id
+            ) as component_count
+
+        FROM ASSETS a
+
+        LEFT JOIN products p
+            ON a.product_id = p.id
+
+        LEFT JOIN oems oem
+            ON p.oem_id = oem.id
+
+        LEFT JOIN categories cat
+            ON p.category_id = cat.id
+
+        LEFT JOIN USER_MASTER u
+            ON a.assigned_to = u.user_id
+
+        LEFT JOIN locations l
+            ON u.location_id = l.id
+
+        WHERE
+            a.assigned_to = @userId
+            AND a.is_active = 1
+            AND a.status NOT IN ('disposed','scrapped')
+
+        ORDER BY a.asset_tag
+      `);
+
+    sendSuccess(res, result.recordset);
+
+  })
+);
+
 
 /**
  * GET /api/v1/gate-passes/assets/:assetId/with-components
@@ -267,8 +429,7 @@ router.get('/assets/:assetId/with-components',
         LEFT JOIN products p ON a.product_id = p.id
         LEFT JOIN oems oem ON p.oem_id = oem.id
         LEFT JOIN categories cat ON p.category_id = cat.id
-        LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-        LEFT JOIN locations l ON u.location_id = l.id
+        LEFT JOIN locations l ON a.location_id = l.id
         WHERE a.id = @assetId OR a.parent_asset_id = @assetId
         ORDER BY
           CASE WHEN a.id = @assetId THEN 0 ELSE 1 END,
@@ -388,17 +549,17 @@ router.post('/',
       if (assets && assets.length > 0) {
 
         const firstAssetLocation = await transaction.request()
-          .input('asset_id', sql.UniqueIdentifier, assets[0].asset_id)
-          .query(`
-            SELECT
-              l.id as location_id,
-              l.name as location_name,
-              CONCAT(l.address, ', ', l.city_name, ', ', l.state_name) as location_address
-            FROM ASSETS a
-            LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-            LEFT JOIN locations l ON u.location_id = l.id
-            WHERE a.id = @asset_id
-          `);
+            .input('asset_id', sql.UniqueIdentifier, assets[0].asset_id)
+            .query(`
+              SELECT
+                l.id as location_id,
+                l.name as location_name,
+                CONCAT(l.address, ', ', l.city_name, ', ', l.state_name) as location_address
+              FROM ASSETS a
+              LEFT JOIN locations l
+                ON a.location_id = l.id
+              WHERE a.id = @asset_id
+            `);
 
         fromLocation = firstAssetLocation.recordset[0] || {};
       }
@@ -414,21 +575,79 @@ router.post('/',
       // Get recipient info if end_user
       let recipientInfo = {};
       if (gate_pass_type === 'end_user' && recipient_user_id) {
+        // const recipientResult = await transaction.request()
+        //   .input('user_id', sql.UniqueIdentifier, recipient_user_id)
+        //   .query(`
+        //     SELECT
+        //       u.first_name + ' ' + u.last_name as name,
+        //       u.employee_id,
+        //       u.email,
+        //       d.department_name,
+        //       l.name as location_name
+        //     FROM USER_MASTER u
+        //     LEFT JOIN DEPARTMENT_MASTER d ON u.department_id = d.department_id
+        //     LEFT JOIN locations l ON u.location_id = l.id
+        //     WHERE u.user_id = @user_id
+        //   `);
+
+        // const recipientResult = await transaction.request()
+        //   .input('user_id', sql.UniqueIdentifier, recipient_user_id)
+        //   .query(`
+        //     SELECT TOP 1
+        //       u.first_name + ' ' + u.last_name AS name,
+        //       u.employee_id,
+        //       u.email,
+          
+        //       dm.department_name,
+        //       l.name AS location_name,
+        //       l.floor AS floor_name
+          
+        //   FROM USER_MASTER u
+          
+        //   LEFT JOIN ASSETS a
+        //       ON a.assigned_to = u.user_id
+          
+        //   LEFT JOIN DEPARTMENT_MASTER dm
+        //       ON a.department_id = dm.department_id
+          
+        //   LEFT JOIN locations l
+        //       ON a.location_id = l.id
+
+        //       WHERE u.user_id = @user_id
+        //       ORDER BY a.updated_at DESC
+        //   `);
+
         const recipientResult = await transaction.request()
-          .input('user_id', sql.UniqueIdentifier, recipient_user_id)
-          .query(`
-            SELECT
-              u.first_name + ' ' + u.last_name as name,
-              u.employee_id,
-              u.email,
-              d.department_name,
-              l.name as location_name
-            FROM USER_MASTER u
-            LEFT JOIN DEPARTMENT_MASTER d ON u.department_id = d.department_id
-            LEFT JOIN locations l ON u.location_id = l.id
-            WHERE u.user_id = @user_id
-          `);
+  .input('user_id', sql.UniqueIdentifier, recipient_user_id)
+  .input('asset_id', sql.UniqueIdentifier, assets[0].asset_id)
+  .query(`
+    SELECT
+      u.first_name + ' ' + u.last_name AS name,
+      u.employee_id,
+      u.email,
+      dm.department_name,
+      l.name AS location_name,
+      l.floor AS floor_name
+    FROM USER_MASTER u
+    INNER JOIN ASSETS a
+      ON a.id = @asset_id
+    LEFT JOIN DEPARTMENT_MASTER dm
+      ON a.department_id = dm.department_id
+    LEFT JOIN locations l
+      ON a.location_id = l.id
+    WHERE u.user_id = @user_id
+  `);
+
+        
         recipientInfo = recipientResult.recordset[0] || {};
+        recipientInfo.floor = recipientInfo.floor_name;
+        console.log("Recipient Query Result:", recipientResult.recordset[0]);
+        console.log("Recipient Info:", recipientInfo);
+        
+        // Use asset location instead of user location
+          if (fromLocation.location_name) {
+            recipientInfo.location_name = fromLocation.location_name;
+          }
       }
 
       // Get authorizer info
@@ -440,6 +659,7 @@ router.post('/',
         authorizerName = authResult.recordset[0]?.name;
       }
 
+        console.log("Saving Floor:", recipientInfo.floor);
       // Insert gate pass
       await transaction.request()
         .input('id', sql.UniqueIdentifier, gatePassId)
@@ -449,6 +669,7 @@ router.post('/',
         .input('from_location_id', sql.UniqueIdentifier, fromLocation.location_id || null)
         .input('from_location_name', sql.NVarChar(200), fromLocation.location_name || null)
         .input('from_location_address', sql.NVarChar(500), fromLocation.location_address || null)
+        .input('recipient_floor',sql.NVarChar(100),recipientInfo.floor || null)
         .input('vendor_id', sql.UniqueIdentifier, vendor_id || null)
         .input('vendor_name', sql.NVarChar(200), vendorName)
         .input('destination_address', sql.NVarChar(500), destination_address || null)
@@ -473,14 +694,14 @@ router.post('/',
             id, gate_pass_number, gate_pass_type, purpose,
             from_location_id, from_location_name, from_location_address,
             vendor_id, vendor_name, destination_address, service_description, expected_return_date,
-            recipient_user_id, recipient_name, recipient_employee_id, recipient_email, recipient_department, recipient_location,
+            recipient_user_id, recipient_name, recipient_employee_id, recipient_email, recipient_department, recipient_location,recipient_floor,
             authorized_by, authorized_by_name, issue_date, valid_until, remarks,
             created_by, created_by_name, carrier_name
           ) VALUES (
             @id, @gate_pass_number, @gate_pass_type, @purpose,
             @from_location_id, @from_location_name, @from_location_address,
             @vendor_id, @vendor_name, @destination_address, @service_description, @expected_return_date,
-            @recipient_user_id, @recipient_name, @recipient_employee_id, @recipient_email, @recipient_department, @recipient_location,
+            @recipient_user_id, @recipient_name, @recipient_employee_id, @recipient_email, @recipient_department, @recipient_location,@recipient_floor,
             @authorized_by, @authorized_by_name, @issue_date, @valid_until, @remarks,
             @created_by, @created_by_name, @carrier_name
           )
@@ -493,14 +714,28 @@ router.post('/',
           .input('asset_id', sql.UniqueIdentifier, assetItem.asset_id)
           .query(`
             SELECT
-              a.id, a.asset_tag, a.serial_number, a.parent_asset_id,
-              p.name as product_name, p.model,
-              cat.name as category_name,
-              oem.name as oem_name,
-              (SELECT COUNT(*) FROM ASSETS WHERE parent_asset_id = a.id) as component_count
+                a.id,
+                a.asset_tag,
+                a.serial_number,
+            
+                p.name AS product_name,
+                p.model,
+            
+                cat.name AS category_name,
+                subcat.name AS subcategory_name,
+            
+                oem.name AS oem_name,
+            
+                (
+                    SELECT COUNT(*)
+                    FROM ASSETS
+                    WHERE parent_asset_id = a.id
+                ) AS component_count
             FROM ASSETS a
             LEFT JOIN products p ON a.product_id = p.id
             LEFT JOIN categories cat ON p.category_id = cat.id
+            LEFT JOIN categories subcat
+    ON p.subcategory_id = subcat.id
             LEFT JOIN oems oem ON p.oem_id = oem.id
             WHERE a.id = @asset_id
           `);
@@ -597,6 +832,158 @@ router.post('/',
     }
   })
 );
+
+
+const XLSX = require('xlsx');
+
+router.get(
+  '/export',
+  requireRole([
+    USER_ROLES.ADMIN,
+    USER_ROLES.SUPERADMIN,
+    USER_ROLES.COORDINATOR,
+    USER_ROLES.IT_HEAD
+  ]),
+  asyncHandler(async (req, res) => {
+
+    const {
+      gate_pass_type,
+      date_from,
+      date_to,
+      search,
+      serial_number
+    } = req.query;
+
+    const pool = await connectDB();
+
+    let filter = "WHERE 1=1";
+    const request = pool.request();
+
+    if (gate_pass_type) {
+      filter += " AND gp.gate_pass_type=@gate_pass_type";
+      request.input("gate_pass_type", sql.VarChar, gate_pass_type);
+    }
+
+    if (date_from) {
+      filter += " AND CAST(gp.created_at AS DATE)>=@date_from";
+      request.input("date_from", sql.Date, date_from);
+    }
+
+    if (date_to) {
+      filter += " AND CAST(gp.created_at AS DATE)<=@date_to";
+      request.input("date_to", sql.Date, date_to);
+    }
+
+    if (search) {
+      filter += `
+      AND (
+          gp.gate_pass_number LIKE @search
+          OR gp.vendor_name LIKE @search
+          OR gp.recipient_name LIKE @search
+      )`;
+      request.input("search", sql.VarChar, `%${search}%`);
+    }
+
+    if (serial_number) {
+      filter += " AND gpa.serial_number LIKE @serial_number";
+      request.input("serial_number", sql.VarChar, `%${serial_number}%`);
+    }
+
+    const result = await request.query(`
+        SELECT
+    gp.gate_pass_number AS [Gate Pass No.],
+
+    gpa.asset_tag       AS [Asset Tag],
+    gpa.serial_number   AS [Serial Number],
+
+    c.name              AS [Category],
+    sc.name             AS [Sub Category],
+
+    p.name              AS [Product],
+    p.model             AS [Model],
+
+    CASE
+        WHEN gp.gate_pass_type='disposal_service'
+            THEN 'Disposal / Service'
+        ELSE 'End User'
+    END AS [Type],
+
+    CASE gp.purpose
+        WHEN 'repair' THEN 'External Repair'
+        WHEN 'buyback' THEN 'Buyback / Sale'
+        WHEN 'scrap' THEN 'Scrap / Disposal'
+        WHEN 'new_assignment' THEN 'New Assignment'
+        WHEN 'temporary_handover' THEN 'Temporary Handover'
+        WHEN 'permanent_transfer' THEN 'Permanent Transfer'
+        WHEN 'repair_return' THEN 'Repair and Return'
+        ELSE gp.purpose
+    END AS [Purpose],
+
+    gp.from_location_name AS [From],
+
+    CASE
+        WHEN gp.gate_pass_type='disposal_service'
+            THEN gp.vendor_name
+        ELSE gp.recipient_name
+    END AS [To],
+
+    (
+        SELECT COUNT(*)
+        FROM GATE_PASS_ASSETS x
+        WHERE x.gate_pass_id = gp.id
+    ) AS [Assets],
+
+    CONVERT(varchar(11), gp.created_at, 106) AS [Created Date]
+
+FROM GATE_PASSES gp
+
+LEFT JOIN GATE_PASS_ASSETS gpa
+       ON gp.id = gpa.gate_pass_id
+
+LEFT JOIN ASSETS a
+       ON gpa.asset_id = a.id
+
+LEFT JOIN PRODUCTS p
+       ON a.product_id = p.id
+
+LEFT JOIN CATEGORIES c
+       ON p.category_id = c.id
+
+LEFT JOIN CATEGORIES sc
+       ON p.subcategory_id = sc.id
+${filter}
+ORDER BY gp.created_at DESC;
+    `);
+
+    const workbook = XLSX.utils.book_new();
+
+    const worksheet = XLSX.utils.json_to_sheet(result.recordset);
+
+    XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Gate Passes"
+    );
+
+    const buffer = XLSX.write(workbook,{
+        type:"buffer",
+        bookType:"xlsx"
+    });
+
+    res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=GatePasses.xlsx"
+    );
+
+    res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.send(buffer);
+
+}));
+
 
 /**
  * GET /api/v1/gate-passes/:id
