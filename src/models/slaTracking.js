@@ -937,14 +937,72 @@ class SlaTrackingModel {
       const complianceResult = await request.query(complianceQuery);
 
       // Get summary totals
+      // const summaryRequest = pool.request();
+      // if (startDate) summaryRequest.input('dateFrom', sql.DateTime, startDate);
+      // if (endDate) summaryRequest.input('dateTo', sql.DateTime, endDate);
+      // if (filters.location_id) summaryRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
+      // if (filters.department_id) summaryRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
+      // if (filters.asset_category_id) summaryRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
+      // if (filters.oem_id) summaryRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
+      // if (filters.product_model) summaryRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
       const summaryRequest = pool.request();
-      if (startDate) summaryRequest.input('dateFrom', sql.DateTime, startDate);
-      if (endDate) summaryRequest.input('dateTo', sql.DateTime, endDate);
-      if (filters.location_id) summaryRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
-      if (filters.department_id) summaryRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
-      if (filters.asset_category_id) summaryRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
-      if (filters.oem_id) summaryRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
-      if (filters.product_model) summaryRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
+        if (startDate) {
+          summaryRequest.input('dateFrom', sql.DateTime, startDate);
+        }
+        
+        if (endDate) {
+          summaryRequest.input('dateTo', sql.DateTime, endDate);
+        }
+        
+        if (filters.location_id) {
+          summaryRequest.input(
+            'locationId',
+            sql.UniqueIdentifier,
+            filters.location_id
+          );
+        }
+        
+        if (filters.department_id) {
+          summaryRequest.input(
+            'departmentId',
+            sql.UniqueIdentifier,
+            filters.department_id
+          );
+        }
+        
+        if (filters.asset_category_id) {
+          summaryRequest.input(
+            'assetCategoryId',
+            sql.UniqueIdentifier,
+            filters.asset_category_id
+          );
+        }
+        
+        if (filters.sub_category_id) {
+          summaryRequest.input(
+            'subCategoryId',
+            sql.UniqueIdentifier,
+            filters.sub_category_id
+          );
+        }
+        
+        if (filters.oem_id) {
+          summaryRequest.input(
+            'oemId',
+            sql.UniqueIdentifier,
+            filters.oem_id
+          );
+        }
+        
+        if (filters.product_model) {
+          summaryRequest.input(
+            'productModel',
+            sql.UniqueIdentifier,
+            filters.product_model
+          );
+        }
 
       const summaryQuery = `
     SELECT
@@ -996,14 +1054,72 @@ class SlaTrackingModel {
       const summaryResult = await summaryRequest.query(summaryQuery);
 
       // Get breakdown by location
+      // const locationRequest = pool.request();
+      // if (startDate) locationRequest.input('dateFrom', sql.DateTime, startDate);
+      // if (endDate) locationRequest.input('dateTo', sql.DateTime, endDate);
+      // if (filters.location_id) locationRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
+      // if (filters.department_id) locationRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
+      // if (filters.asset_category_id) locationRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
+      // if (filters.oem_id) locationRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
+      // if (filters.product_model) locationRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
       const locationRequest = pool.request();
-      if (startDate) locationRequest.input('dateFrom', sql.DateTime, startDate);
-      if (endDate) locationRequest.input('dateTo', sql.DateTime, endDate);
-      if (filters.location_id) locationRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
-      if (filters.department_id) locationRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
-      if (filters.asset_category_id) locationRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
-      if (filters.oem_id) locationRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
-      if (filters.product_model) locationRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
+      if (startDate) {
+        locationRequest.input('dateFrom', sql.DateTime, startDate);
+      }
+      
+      if (endDate) {
+        locationRequest.input('dateTo', sql.DateTime, endDate);
+      }
+      
+      if (filters.location_id) {
+        locationRequest.input(
+          'locationId',
+          sql.UniqueIdentifier,
+          filters.location_id
+        );
+      }
+      
+      if (filters.department_id) {
+        locationRequest.input(
+          'departmentId',
+          sql.UniqueIdentifier,
+          filters.department_id
+        );
+      }
+      
+      if (filters.asset_category_id) {
+        locationRequest.input(
+          'assetCategoryId',
+          sql.UniqueIdentifier,
+          filters.asset_category_id
+        );
+      }
+      
+      if (filters.sub_category_id) {
+        locationRequest.input(
+          'subCategoryId',
+          sql.UniqueIdentifier,
+          filters.sub_category_id
+        );
+      }
+      
+      if (filters.oem_id) {
+        locationRequest.input(
+          'oemId',
+          sql.UniqueIdentifier,
+          filters.oem_id
+        );
+      }
+      
+      if (filters.product_model) {
+        locationRequest.input(
+          'productModel',
+          sql.UniqueIdentifier,
+          filters.product_model
+        );
+      }
 
       const locationBreakdownQuery = `
     SELECT
@@ -1066,14 +1182,72 @@ class SlaTrackingModel {
       const locationBreakdown = await locationRequest.query(locationBreakdownQuery);
 
       // Get breakdown by department
+      // const deptRequest = pool.request();
+      // if (startDate) deptRequest.input('dateFrom', sql.DateTime, startDate);
+      // if (endDate) deptRequest.input('dateTo', sql.DateTime, endDate);
+      // if (filters.location_id) deptRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
+      // if (filters.department_id) deptRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
+      // if (filters.asset_category_id) deptRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
+      // if (filters.oem_id) deptRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
+      // if (filters.product_model) deptRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
       const deptRequest = pool.request();
-      if (startDate) deptRequest.input('dateFrom', sql.DateTime, startDate);
-      if (endDate) deptRequest.input('dateTo', sql.DateTime, endDate);
-      if (filters.location_id) deptRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
-      if (filters.department_id) deptRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
-      if (filters.asset_category_id) deptRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
-      if (filters.oem_id) deptRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
-      if (filters.product_model) deptRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
+      if (startDate) {
+        deptRequest.input('dateFrom', sql.DateTime, startDate);
+      }
+      
+      if (endDate) {
+        deptRequest.input('dateTo', sql.DateTime, endDate);
+      }
+      
+      if (filters.location_id) {
+        deptRequest.input(
+          'locationId',
+          sql.UniqueIdentifier,
+          filters.location_id
+        );
+      }
+      
+      if (filters.department_id) {
+        deptRequest.input(
+          'departmentId',
+          sql.UniqueIdentifier,
+          filters.department_id
+        );
+      }
+      
+      if (filters.asset_category_id) {
+        deptRequest.input(
+          'assetCategoryId',
+          sql.UniqueIdentifier,
+          filters.asset_category_id
+        );
+      }
+      
+      if (filters.sub_category_id) {
+        deptRequest.input(
+          'subCategoryId',
+          sql.UniqueIdentifier,
+          filters.sub_category_id
+        );
+      }
+      
+      if (filters.oem_id) {
+        deptRequest.input(
+          'oemId',
+          sql.UniqueIdentifier,
+          filters.oem_id
+        );
+      }
+      
+      if (filters.product_model) {
+        deptRequest.input(
+          'productModel',
+          sql.UniqueIdentifier,
+          filters.product_model
+        );
+      }
 
       const deptBreakdownQuery = `
     SELECT
@@ -1135,15 +1309,205 @@ class SlaTrackingModel {
 
       const deptBreakdown = await deptRequest.query(deptBreakdownQuery);
 
+      // ==================== SUB CATEGORY BREAKDOWN ====================
+
+const subCategoryRequest = pool.request();
+
+if (startDate) {
+  subCategoryRequest.input(
+    'dateFrom',
+    sql.DateTime,
+    startDate
+  );
+}
+
+if (endDate) {
+  subCategoryRequest.input(
+    'dateTo',
+    sql.DateTime,
+    endDate
+  );
+}
+
+if (filters.location_id) {
+  subCategoryRequest.input(
+    'locationId',
+    sql.UniqueIdentifier,
+    filters.location_id
+  );
+}
+
+if (filters.department_id) {
+  subCategoryRequest.input(
+    'departmentId',
+    sql.UniqueIdentifier,
+    filters.department_id
+  );
+}
+
+if (filters.asset_category_id) {
+  subCategoryRequest.input(
+    'assetCategoryId',
+    sql.UniqueIdentifier,
+    filters.asset_category_id
+  );
+}
+
+if (filters.sub_category_id) {
+  subCategoryRequest.input(
+    'subCategoryId',
+    sql.UniqueIdentifier,
+    filters.sub_category_id
+  );
+}
+
+if (filters.oem_id) {
+  subCategoryRequest.input(
+    'oemId',
+    sql.UniqueIdentifier,
+    filters.oem_id
+  );
+}
+
+if (filters.product_model) {
+  subCategoryRequest.input(
+    'productModel',
+    sql.UniqueIdentifier,
+    filters.product_model
+  );
+}
+
+const subCategoryBreakdownQuery = `
+    SELECT
+        sc.id AS sub_category_id,
+        sc.name AS sub_category_name,
+
+        COUNT(DISTINCT t.ticket_id) AS total_resolved,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status != 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_within_sla,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN tst.final_status = 'breached'
+                THEN t.ticket_id
+            END
+        ) AS resolved_breached,
+
+        CAST(
+            COUNT(
+                DISTINCT CASE
+                    WHEN tst.final_status != 'breached'
+                    THEN t.ticket_id
+                END
+            ) * 100.0
+            / NULLIF(COUNT(DISTINCT t.ticket_id), 0)
+            AS DECIMAL(5,2)
+        ) AS compliance_rate
+
+    FROM TICKET_SLA_TRACKING tst
+
+    INNER JOIN TICKETS t
+        ON tst.ticket_id = t.ticket_id
+
+    LEFT JOIN TICKET_ASSETS ta
+        ON t.ticket_id = ta.ticket_id
+
+    LEFT JOIN assets a
+        ON ta.asset_id = a.id
+
+    LEFT JOIN products p
+        ON a.product_id = p.id
+
+    INNER JOIN categories sc
+        ON p.sub_category_id = sc.id
+
+    ${whereClause}
+
+    GROUP BY
+        sc.id,
+        sc.name
+
+    ORDER BY total_resolved DESC
+`;
+
+const subCategoryBreakdown =
+  await subCategoryRequest.query(
+    subCategoryBreakdownQuery
+  );
+      
+
       // Get detailed ticket list
+      // const detailRequest = pool.request();
+      // if (startDate) detailRequest.input('dateFrom', sql.DateTime, startDate);
+      // if (endDate) detailRequest.input('dateTo', sql.DateTime, endDate);
+      // if (filters.location_id) detailRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
+      // if (filters.department_id) detailRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
+      // if (filters.asset_category_id) detailRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
+      // if (filters.oem_id) detailRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
+      // if (filters.product_model) detailRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
       const detailRequest = pool.request();
-      if (startDate) detailRequest.input('dateFrom', sql.DateTime, startDate);
-      if (endDate) detailRequest.input('dateTo', sql.DateTime, endDate);
-      if (filters.location_id) detailRequest.input('locationId', sql.UniqueIdentifier, filters.location_id);
-      if (filters.department_id) detailRequest.input('departmentId', sql.UniqueIdentifier, filters.department_id);
-      if (filters.asset_category_id) detailRequest.input('assetCategoryId', sql.UniqueIdentifier, filters.asset_category_id);
-      if (filters.oem_id) detailRequest.input('oemId', sql.UniqueIdentifier, filters.oem_id);
-      if (filters.product_model) detailRequest.input('productModel', sql.NVarChar, `%${filters.product_model}%`);
+
+if (startDate) {
+  detailRequest.input('dateFrom', sql.DateTime, startDate);
+}
+
+if (endDate) {
+  detailRequest.input('dateTo', sql.DateTime, endDate);
+}
+
+if (filters.location_id) {
+  detailRequest.input(
+    'locationId',
+    sql.UniqueIdentifier,
+    filters.location_id
+  );
+}
+
+if (filters.department_id) {
+  detailRequest.input(
+    'departmentId',
+    sql.UniqueIdentifier,
+    filters.department_id
+  );
+}
+
+if (filters.asset_category_id) {
+  detailRequest.input(
+    'assetCategoryId',
+    sql.UniqueIdentifier,
+    filters.asset_category_id
+  );
+}
+
+if (filters.sub_category_id) {
+  detailRequest.input(
+    'subCategoryId',
+    sql.UniqueIdentifier,
+    filters.sub_category_id
+  );
+}
+
+if (filters.oem_id) {
+  detailRequest.input(
+    'oemId',
+    sql.UniqueIdentifier,
+    filters.oem_id
+  );
+}
+
+if (filters.product_model) {
+  detailRequest.input(
+    'productModel',
+    sql.UniqueIdentifier,
+    filters.product_model
+  );
+}
 
      const detailQuery = `
     SELECT DISTINCT
@@ -1151,6 +1515,7 @@ class SlaTrackingModel {
         t.ticket_number,
         t.title,
         t.category,
+        sc.name AS sub_category_name,
         t.priority,
         t.status,
 
@@ -1199,6 +1564,9 @@ class SlaTrackingModel {
     LEFT JOIN products p
         ON a.product_id = p.id
 
+    LEFT JOIN categories sc
+    ON p.sub_category_id = sc.id
+
     ${whereClause}
 
     ORDER BY tst.resolved_at DESC
@@ -1206,20 +1574,42 @@ class SlaTrackingModel {
 
       const detailResult = await detailRequest.query(detailQuery);
 
+      // return {
+      //   summary: summaryResult.recordset[0] || {
+      //     total_resolved: 0,
+      //     resolved_within_sla: 0,
+      //     resolved_breached: 0,
+      //     compliance_rate: null,
+      //     avg_resolution_minutes: 0
+      //   },
+      //   by_period: complianceResult.recordset,
+      //   by_location: locationBreakdown.recordset,
+      //   by_department: deptBreakdown.recordset,
+      //   details: detailResult.recordset,
+      //   filters_applied: filters
+      // };
+
       return {
-        summary: summaryResult.recordset[0] || {
-          total_resolved: 0,
-          resolved_within_sla: 0,
-          resolved_breached: 0,
-          compliance_rate: null,
-          avg_resolution_minutes: 0
-        },
-        by_period: complianceResult.recordset,
-        by_location: locationBreakdown.recordset,
-        by_department: deptBreakdown.recordset,
-        details: detailResult.recordset,
-        filters_applied: filters
-      };
+    summary: summaryResult.recordset[0] || {
+        total_resolved: 0,
+        resolved_within_sla: 0,
+        resolved_breached: 0,
+        compliance_rate: null,
+        avg_resolution_minutes: 0
+    },
+
+    by_period: complianceResult.recordset,
+
+    by_location: locationBreakdown.recordset,
+
+    by_department: deptBreakdown.recordset,
+
+    by_sub_category: subCategoryBreakdown.recordset,
+
+    details: detailResult.recordset,
+
+    filters_applied: filters
+};
     } catch (error) {
       console.error('Error getting SLA compliance report:', error);
       throw error;
