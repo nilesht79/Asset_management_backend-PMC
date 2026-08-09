@@ -120,23 +120,92 @@ router.get('/',
 
     params.forEach(param => dataRequest.input(param.name, param.type, param.value));
 
+    // const result = await dataRequest.query(`
+    //   SELECT
+    //     d.*,
+    //     a.asset_tag,
+    //     p.name as product_name,
+    //     a.serial_number,
+    //     CONCAT(detector.first_name, ' ', detector.last_name) as detected_by_name,
+    //     CONCAT(resolver.first_name, ' ', resolver.last_name) as resolved_by_name
+    //   FROM RECONCILIATION_DISCREPANCIES d
+    //   INNER JOIN RECONCILIATION_RECORDS rr ON d.reconciliation_record_id = rr.id
+    //   LEFT JOIN assets a ON rr.asset_id = a.id
+    //   LEFT JOIN products p ON a.product_id = p.id
+    //   LEFT JOIN USER_MASTER detector ON d.detected_by = detector.user_id
+    //   LEFT JOIN USER_MASTER resolver ON d.resolved_by = resolver.user_id
+    //   WHERE ${whereClause}
+    //   ORDER BY ${orderByColumn} ${orderDirection}
+    //   OFFSET @offset ROWS
+    //   FETCH NEXT @limit ROWS ONLY
+    // `);
+
     const result = await dataRequest.query(`
       SELECT
-        d.*,
+        d.id,
+        d.reconciliation_record_id,
+        d.field_name,
+        d.field_display_name,
+    
+        CASE
+            WHEN d.field_name = 'location'
+            THEN CONCAT(
+                l.name,
+                CASE
+                    WHEN l.floor IS NOT NULL
+                         AND LTRIM(RTRIM(CAST(l.floor AS VARCHAR(20)))) <> ''
+                    THEN ' - Floor ' + CAST(l.floor AS VARCHAR(20))
+                    ELSE ''
+                END
+            )
+            ELSE d.system_value
+        END AS system_value,
+    
+        d.physical_value,
+        d.discrepancy_type,
+        d.severity,
+        d.detected_by,
+        d.detected_at,
+        d.is_resolved,
+        d.resolved_by,
+        d.resolved_at,
+        d.resolution_action,
+        d.resolution_notes,
+        d.created_at,
+        d.updated_at,
+    
         a.asset_tag,
-        p.name as product_name,
-        CONCAT(detector.first_name, ' ', detector.last_name) as detected_by_name,
-        CONCAT(resolver.first_name, ' ', resolver.last_name) as resolved_by_name
-      FROM RECONCILIATION_DISCREPANCIES d
-      INNER JOIN RECONCILIATION_RECORDS rr ON d.reconciliation_record_id = rr.id
-      LEFT JOIN assets a ON rr.asset_id = a.id
-      LEFT JOIN products p ON a.product_id = p.id
-      LEFT JOIN USER_MASTER detector ON d.detected_by = detector.user_id
-      LEFT JOIN USER_MASTER resolver ON d.resolved_by = resolver.user_id
-      WHERE ${whereClause}
-      ORDER BY ${orderByColumn} ${orderDirection}
-      OFFSET @offset ROWS
-      FETCH NEXT @limit ROWS ONLY
+        p.name AS product_name,
+        a.serial_number,
+    
+        CONCAT(detector.first_name, ' ', detector.last_name) AS detected_by_name,
+        CONCAT(resolver.first_name, ' ', resolver.last_name) AS resolved_by_name
+    
+        FROM RECONCILIATION_DISCREPANCIES d
+        INNER JOIN RECONCILIATION_RECORDS rr
+            ON d.reconciliation_record_id = rr.id
+        
+        LEFT JOIN assets a
+            ON rr.asset_id = a.id
+        
+        LEFT JOIN locations l
+            ON a.location_id = l.id
+        
+        LEFT JOIN products p
+            ON a.product_id = p.id
+        
+        LEFT JOIN USER_MASTER detector
+            ON d.detected_by = detector.user_id
+        
+        LEFT JOIN USER_MASTER resolver
+            ON d.resolved_by = resolver.user_id
+        
+        WHERE ${whereClause}
+        
+        ORDER BY ${orderByColumn} ${orderDirection}
+        
+        OFFSET @offset ROWS
+        FETCH NEXT @limit ROWS ONLY
     `);
 
     sendSuccess(res, {
@@ -407,6 +476,7 @@ router.get('/export',
       .query(`
         SELECT
           a.asset_tag,
+          a.serial_number,
           p.name as product_name,
           d.field_display_name,
           d.discrepancy_type,
@@ -443,6 +513,7 @@ router.get('/export',
       // CSV Headers
       const headers = [
         'Asset Tag',
+        'Serial Number',
         'Product',
         'Field',
         'Type',
@@ -466,6 +537,7 @@ router.get('/export',
       discrepancies.forEach(row => {
         const values = [
           `"${row.asset_tag || ''}"`,
+          `${row.serial_number || ''}`,
           `"${row.product_name || ''}"`,
           `"${row.field_display_name || ''}"`,
           `"${row.discrepancy_type || ''}"`,
@@ -518,6 +590,7 @@ router.get('/:discrepancyId',
           d.*,
           a.asset_tag,
           p.name as product_name,
+          a.serial_number,
           rr.reconciliation_id,
           CONCAT(detector.first_name, ' ', detector.last_name) as detected_by_name,
           detector.email as detected_by_email,
