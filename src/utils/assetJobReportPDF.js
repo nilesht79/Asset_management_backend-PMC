@@ -411,7 +411,7 @@ class AssetJobReportPDF {
     // IT Head
     const col2X = x + boxWidth + gap;
     doc.rect(col2X, y, boxWidth, boxH).strokeColor(this.colors.border).lineWidth(1).stroke();
-    doc.text('IT Head', col2X + 3, y + boxH - 18, { width: boxWidth - 6, align: 'center', lineBreak: false });
+    doc.text('Issued By', col2X + 3, y + boxH - 18, { width: boxWidth - 6, align: 'center', lineBreak: false });
     doc.text('Signature & Date', col2X + 3, y + boxH - 10, { width: boxWidth - 6, align: 'center', lineBreak: false });
 
     // User
