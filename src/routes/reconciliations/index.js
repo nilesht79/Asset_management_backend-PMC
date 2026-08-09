@@ -350,20 +350,37 @@ router.put('/:id/start',
         `);
 
       // Get all active assets with their current state
+      // const assetsResult = await transaction.request()
+      //   .query(`
+      //     SELECT
+      //       a.id as asset_id,
+      //       a.asset_tag,
+      //       a.status,
+      //       a.assigned_to,
+      //       a.condition_status,
+      //       u.location_id,
+      //       l.name as location_name
+      //     FROM assets a
+      //     LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
+      //     LEFT JOIN locations l ON u.location_id = l.id
+      //     WHERE a.is_active = 1
+      //   `);
+
       const assetsResult = await transaction.request()
         .query(`
           SELECT
-            a.id as asset_id,
+            a.id AS asset_id,
             a.asset_tag,
             a.status,
             a.assigned_to,
             a.condition_status,
-            u.location_id,
-            l.name as location_name
-          FROM assets a
-          LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-          LEFT JOIN locations l ON u.location_id = l.id
-          WHERE a.is_active = 1
+            a.location_id,
+            l.name AS location_name,
+            l.floor AS floor
+        FROM assets a
+        LEFT JOIN locations l
+            ON a.location_id = l.id
+        WHERE a.is_active = 1
         `);
 
       const assets = assetsResult.recordset;
@@ -396,14 +413,43 @@ router.put('/:id/start',
             insertRequest.input(`assetId${index}`, sql.UniqueIdentifier, asset.asset_id);
 
             // Create system snapshot JSON
+            // const snapshot = {
+            //   asset_tag: asset.asset_tag,
+            //   status: asset.status,
+            //   assigned_to: asset.assigned_to,
+            //   location_id: asset.location_id,
+            //   location_name: asset.location_name,
+            //   condition_status: asset.condition_status
+            // };
+            // const snapshot = {
+            //   asset_tag: asset.asset_tag,
+            //   status: asset.status,
+            //   assigned_to: asset.assigned_to,
+            //   location_id: asset.location_id,
+            //   location_name: asset.location_name,
+            //   floor: asset.floor,
+            //   condition_status: asset.condition_status
+            // };
             const snapshot = {
-              asset_tag: asset.asset_tag,
-              status: asset.status,
-              assigned_to: asset.assigned_to,
-              location_id: asset.location_id,
-              location_name: asset.location_name,
-              condition_status: asset.condition_status
-            };
+            asset_tag: asset.asset_tag,
+            status: asset.status,
+            assigned_to: asset.assigned_to,
+            location_id: asset.location_id,
+          
+            location_name: asset.location_name
+              ? `${asset.location_name}${
+                  asset.floor !== null &&
+                  asset.floor !== undefined &&
+                  String(asset.floor).trim() !== ''
+                    ? ` - Floor ${asset.floor}`
+                    : ''
+                }`
+              : null,
+          
+            floor: asset.floor,
+            condition_status: asset.condition_status
+          };
+            console.log("SNAPSHOT TO SAVE:", snapshot);
             insertRequest.input(`systemSnapshot${index}`, sql.NVarChar(sql.MAX), JSON.stringify(snapshot));
           });
 
