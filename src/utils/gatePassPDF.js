@@ -46,7 +46,8 @@ class GatePassPDF {
       purposeLabels: {
         new_assignment: 'New Assignment',
         temporary_handover: 'Temporary Handover',
-        permanent_transfer: 'Permanent Transfer'
+        permanent_transfer: 'Permanent Transfer',
+        repair_return: 'Repair and Return'
       }
     }
   };
@@ -131,7 +132,8 @@ class GatePassPDF {
     y = this.renderFromToSection(doc, gatePass, margin, y, pageWidth);
 
     // ===== ASSETS TABLE =====
-    y = this.renderAssetsTable(doc, gatePass.assets || [], margin, y, pageWidth, maxY);
+    // y = this.renderAssetsTable(doc, gatePass.assets || [], margin, y, pageWidth, maxY);
+    y = this.renderAssetsTable(doc, gatePass, margin, y, pageWidth, maxY);
 
     // ===== REMARKS =====
     if (gatePass.remarks && y < maxY - 60) {
@@ -140,8 +142,9 @@ class GatePassPDF {
 
     // ===== AUTHORIZATION & SIGNATURES =====
     if (y < maxY) {
-      y = this.renderSignatures(doc, gatePass, margin, y, pageWidth);
-    }
+    y += 15; // Gap before Authorization section
+    y = this.renderSignatures(doc, gatePass, margin, y, pageWidth);
+}
 
     // ===== SECURITY SECTION =====
     this.renderSecuritySection(doc, margin, pageWidth);
@@ -313,7 +316,7 @@ class GatePassPDF {
     const halfWidth = (pageWidth - 20) / 2;
 
     // FROM Box
-    doc.rect(margin, y, halfWidth, 80)
+    doc.rect(margin, y, halfWidth, 95)
       .stroke(this.colors.border);
 
     doc.font('Helvetica-Bold')
@@ -348,7 +351,7 @@ class GatePassPDF {
 
     // TO Box
     const toX = margin + halfWidth + 20;
-    doc.rect(toX, y, halfWidth, 80)
+    doc.rect(toX, y, halfWidth, 95)
       .stroke(this.colors.border);
 
     doc.font('Helvetica-Bold')
@@ -399,26 +402,45 @@ class GatePassPDF {
           .fillColor(this.colors.gray)
           .text(`Emp ID: ${gatePass.recipient_employee_id}`, toX + 10, y + 42, { lineBreak: false });
       }
+      // if (gatePass.recipient_department) {
+      //   doc.text(`Dept: ${gatePass.recipient_department}`, toX + 10, y + 54, { lineBreak: false });
+      // }
+      // if (gatePass.recipient_location) {
+      //   doc.text(`Location: ${gatePass.recipient_location}`, toX + 10, y + 66, { lineBreak: false });
+      // }
       if (gatePass.recipient_department) {
-        doc.text(`Dept: ${gatePass.recipient_department}`, toX + 10, y + 54, { lineBreak: false });
-      }
-      if (gatePass.recipient_location) {
-        doc.text(`Location: ${gatePass.recipient_location}`, toX + 10, y + 66, { lineBreak: false });
-      }
+            doc.text(`Dept: ${gatePass.recipient_department}`, toX + 10, y + 54, {
+              lineBreak: false
+            });
+          }
+          
+          if (gatePass.recipient_location) {
+            doc.text(`Location: ${gatePass.recipient_location}`, toX + 10, y + 66, {
+              lineBreak: false
+            });
+          }
+          
+          if (gatePass.recipient_floor) {
+            doc.text(`Floor: ${gatePass.recipient_floor}`, toX + 10, y + 78, {
+              lineBreak: false
+            });
+          }
     }
 
     // Reset cursor position
     doc.x = margin;
-    doc.y = y + 95;
+    doc.y = y + 110;
 
-    return y + 95;
+    return y + 110;
   }
 
   /**
    * Render assets table
    */
-  static renderAssetsTable(doc, assets, margin, y, pageWidth, maxY) {
+  // static renderAssetsTable(doc, assets, margin, y, pageWidth, maxY) {
+  static renderAssetsTable(doc, gatePass, margin, y, pageWidth, maxY) {
     // Section header
+    const assets = gatePass.assets || [];
     doc.font('Helvetica-Bold')
       .fontSize(11)
       .fillColor(this.colors.primary)
@@ -534,9 +556,18 @@ class GatePassPDF {
 
     // Total count
     y += 5;
-    const totalText = assets.length > displayAssets.length
-      ? `Total Assets: ${assets.length} (showing ${displayAssets.length})`
-      : `Total Assets: ${sno}`;
+    // const totalText = assets.length > displayAssets.length
+    //   ? `Total Assets: ${assets.length} (showing ${displayAssets.length})`
+    //   : `Total Assets: ${sno}`;
+
+    let totalAssets = sno;
+
+    // For "Proceed Without Asset" gate pass
+    if (totalAssets === 0 && gatePass && gatePass.remarks) {
+      totalAssets = (gatePass.remarks.match(/^\d+:/gm) || []).length;
+    }
+    
+    const totalText = `Total Assets: ${totalAssets}`;
     doc.font('Helvetica-Bold')
       .fontSize(9)
       .fillColor(this.colors.primary)
@@ -552,37 +583,171 @@ class GatePassPDF {
   /**
    * Render remarks section
    */
+  
+
+//   static renderRemarks(doc, remarks, margin, y, pageWidth) {
+//   doc.font('Helvetica-Bold')
+//     .fontSize(10)
+//     .fillColor(this.colors.primary)
+//     .text('Remarks:', margin, y);
+
+//   y += 15;
+
+//   const lines = (remarks || '')
+//     .trim()
+//     .split('\n');
+
+//   const lineHeight = 14;
+//   const boxHeight = Math.max(40, lines.length * lineHeight + 16);
+
+//   doc.rect(margin, y, pageWidth, boxHeight)
+//     .stroke(this.colors.border);
+
+//   let currentY = y + 8;
+
+//   doc.font('Helvetica')
+//     .fontSize(9)
+//     .fillColor(this.colors.black);
+
+//   lines.forEach(line => {
+//     const parts = line.split('\t');
+
+//     const sno = parts[0] || '';
+//     const item = parts[1] || '';
+//     const qty = parts[2] || '';
+
+//     doc.text(sno, margin + 10, currentY, {
+//       width: 25,
+//       lineBreak: false
+//     });
+
+//     doc.text(item, margin + 40, currentY, {
+//       width: 250,
+//       lineBreak: false
+//     });
+
+//     doc.text(qty, margin + 300, currentY, {
+//       width: 60,
+//       align: 'right',
+//       lineBreak: false
+//     });
+
+//     currentY += lineHeight;
+//   });
+
+//   return y + boxHeight + 10;
+// }
+
+
   static renderRemarks(doc, remarks, margin, y, pageWidth) {
-    doc.font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor(this.colors.primary)
-      .text('Remarks:', margin, y, { lineBreak: false });
+  // Title
+  doc.font('Helvetica-Bold')
+    .fontSize(7)
+    .fillColor(this.colors.primary)
+    .text('Remarks:', margin, y);
 
-    y += 15;
+ y += 8;
 
-    doc.rect(margin, y, pageWidth, 40)
-      .stroke(this.colors.border);
+  // Parse rows
+  const rows = (remarks || '')
+    .trim()
+    .split('\n')
+    .filter(r => r.trim() !== '');
 
-    // Truncate remarks to prevent overflow
-    const truncatedRemarks = remarks.length > 150 ? remarks.substring(0, 150) + '...' : remarks;
+  // Column sizes
+  const snoWidth = 35;
+  const qtyWidth = 55;
+  const itemWidth = pageWidth - snoWidth - qtyWidth;
 
-    // Use save/restore to clip text within bounds
-    doc.save();
-    doc.rect(margin + 5, y + 5, pageWidth - 10, 32).clip();
+  const rowHeight = 14;
+
+  let currentY = y;
+
+  rows.forEach(line => {
+
+    // Remove empty tab values
+    const cols = line.split('\t').filter(c => c.trim() !== '');
+
+    let sno = '';
+    let item = '';
+    let qty = '';
+
+    // ----------------------------
+    // Normal rows
+    // Example:
+    // 1    Printer A3    5
+    // ----------------------------
+    if (cols.length >= 3) {
+
+      sno = cols[0];
+      qty = cols[cols.length - 1];
+      item = cols.slice(1, cols.length - 1).join(' ');
+
+    }
+
+    // ----------------------------
+    // Special row
+    // Example:
+    // 10    Black & White Toner 222
+    // ----------------------------
+    else if (cols.length === 2) {
+
+      sno = cols[0];
+
+      const match = cols[1].match(/^(.*?)(\d+)$/);
+
+      if (match) {
+        item = match[1].trim();
+        qty = match[2];
+      } else {
+        item = cols[1];
+        qty = '';
+      }
+
+    }
+
+    // Draw S.No
+    let x = margin;
+
+    doc.rect(x, currentY, snoWidth, rowHeight).stroke();
+
     doc.font('Helvetica')
-      .fontSize(9)
-      .fillColor(this.colors.black)
-      .text(truncatedRemarks, margin + 10, y + 8, {
-        width: pageWidth - 20
+      .fontSize(7)
+      .fillColor('black')
+      .text(sno, x, currentY + 5, {
+        width: snoWidth,
+        align: 'center'
       });
-    doc.restore();
 
-    // Reset cursor position
-    doc.x = margin;
-    doc.y = y + 50;
+    x += snoWidth;
 
-    return y + 50;
-  }
+    // Draw Item
+    doc.rect(x, currentY, itemWidth, rowHeight).stroke();
+
+    doc.font('Helvetica')
+      .fontSize(7)
+      .text(item, x + 2, currentY + 5, {
+        width: itemWidth - 4,
+        align: 'center'
+      });
+
+    x += itemWidth;
+
+    // Draw Qty
+    doc.rect(x, currentY, qtyWidth, rowHeight).stroke();
+
+    doc.font('Helvetica')
+      .fontSize(7)
+      .text(qty, x, currentY + 5, {
+        width: qtyWidth,
+        align: 'center'
+      });
+
+    currentY += rowHeight;
+  });
+
+  return currentY + 15;
+}
 
   /**
    * Render signatures section
@@ -603,7 +768,7 @@ class GatePassPDF {
       .stroke(this.colors.border);
 
     doc.font('Helvetica-Bold')
-      .fontSize(8)
+      .fontSize(7)
       .fillColor(this.colors.gray)
       .text('Authorized By', margin + 10, y + 8, { lineBreak: false });
 
@@ -612,7 +777,7 @@ class GatePassPDF {
       .fillColor(this.colors.black)
       .text(gatePass.created_by_name || '_______________', margin + 10, y + 22, { lineBreak: false });
 
-    doc.fontSize(8)
+    doc.fontSize(7)
       .fillColor(this.colors.gray)
       .text('Signature: _____________', margin + 10, y + 50, { lineBreak: false });
 
@@ -622,7 +787,7 @@ class GatePassPDF {
       .stroke(this.colors.border);
 
     doc.font('Helvetica-Bold')
-      .fontSize(8)
+      .fontSize(7)
       .fillColor(this.colors.gray)
       .text(gatePass.gate_pass_type === 'end_user' ? 'Received By' : 'Handover To', recX + 10, y + 8, { lineBreak: false });
 
@@ -631,7 +796,7 @@ class GatePassPDF {
       .fillColor(this.colors.black)
       .text('_______________', recX + 10, y + 22, { lineBreak: false });
 
-    doc.fontSize(8)
+    doc.fontSize(7)
       .fillColor(this.colors.gray)
       .text('Signature: _____________', recX + 10, y + 50, { lineBreak: false });
 
@@ -641,7 +806,7 @@ class GatePassPDF {
       .stroke(this.colors.border);
 
     doc.font('Helvetica-Bold')
-      .fontSize(8)
+      .fontSize(7)
       .fillColor(this.colors.gray)
       .text('Issued By', secX + 10, y + 8, { lineBreak: false });
 
@@ -650,7 +815,7 @@ class GatePassPDF {
       .fillColor(this.colors.black)
       .text('_______________', secX + 10, y + 22, { lineBreak: false });
 
-    doc.fontSize(8)
+    doc.fontSize(7)
       .fillColor(this.colors.gray)
       .text('Signature: _____________', secX + 10, y + 50, { lineBreak: false });
 
