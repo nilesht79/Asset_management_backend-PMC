@@ -29,53 +29,30 @@ const validators = {
       role: Joi.string().valid(...Object.values(USER_ROLES)).required(),
       department_id: Joi.string().uuid().optional().allow(null),
       location_id: Joi.string().uuid().optional().allow(null),
-      // employee_id: Joi.string().max(20).optional(),
-      employee_id: Joi.string().max(20).optional().allow('', null),
+      employee_id: Joi.string().max(20).optional(),
       designation: Joi.string().max(100).optional().allow('', null),
       room_no: Joi.string().max(50).optional().allow('', null),
       contact_number: Joi.string().max(15).pattern(/^[0-9]+$/).optional().allow('', null),
       is_active: Joi.boolean().default(true),
-
-is_vip: Joi.boolean()
-  .truthy(1)
-  .falsy(0)
-  .default(false),
-
-allow_multi_assets: Joi.boolean()
-  .truthy(1)
-  .falsy(0)
-  .default(false)
+      is_vip: Joi.boolean().default(false),
+      allow_multi_assets: Joi.boolean().default(false)
     }),
 
     update: Joi.object({
       first_name: Joi.string().min(2).max(50).optional(),
       last_name: Joi.string().min(2).max(50).optional(),
-      // email: Joi.string().email({ tlds: { allow: false } }).optional(),
-      email: Joi.string()
-  .email({ tlds: { allow: false } })
-  .optional()
-  .allow('', null),
+      email: Joi.string().email({ tlds: { allow: false } }).optional(),
       role: Joi.string().valid(...Object.values(USER_ROLES)).optional(),
       department_id: Joi.string().uuid().optional().allow(null),
       location_id: Joi.string().uuid().optional().allow(null),
-      // employee_id: Joi.string().max(20).optional(),
-      employee_id: Joi.string().max(20).optional().allow('', null),
+      employee_id: Joi.string().max(20).optional(),
       designation: Joi.string().max(100).optional().allow('', null),
       room_no: Joi.string().max(50).optional().allow('', null),
       contact_number: Joi.string().max(15).pattern(/^[0-9]+$/).optional().allow('', null),
       is_active: Joi.boolean().optional(),
-      // is_vip: Joi.boolean().optional(),
-      is_vip: Joi.boolean()
-  .truthy(1)
-  .falsy(0)
-  .optional(),
-
-allow_multi_assets: Joi.boolean()
-  .truthy(1)
-  .falsy(0)
-  .optional(),
-
-}),
+      is_vip: Joi.boolean().optional(),
+      allow_multi_assets: Joi.boolean().optional()
+    }),
     
     changePassword: Joi.object({
       current_password: Joi.string().required(),
@@ -436,7 +413,7 @@ allow_multi_assets: Joi.boolean()
       assigned_to: Joi.string().uuid().optional().allow(null),
       location_id: Joi.string().uuid().optional().allow(null),
       department_id: Joi.string().uuid().optional().allow(null),
-      status: Joi.string().valid('available', 'assigned', 'in_use', 'under_repair', 'disposed', 'maintenance').default('available'),
+      status: Joi.string().valid('available', 'assigned', 'in_use', 'under_repair', 'disposed', 'maintenance', 'not found').default('available'),
       condition_status: Joi.string().valid('excellent', 'good', 'fair', 'needs_repair', 'poor').default('good'),
       importance: Joi.string().valid('critical', 'high', 'medium', 'low').default('medium'),
       purchase_date: Joi.date().optional().allow(null),
@@ -447,7 +424,7 @@ allow_multi_assets: Joi.boolean()
       purchase_cost: Joi.number().positive().precision(2).optional().allow(null),
       vendor_id: Joi.string().uuid().optional().allow(null),
       invoice_number: Joi.string().max(100).optional().allow(null, ''),
-      notes: Joi.string().max(1000).optional().allow(null),
+      notes: Joi.string().max(1000).optional().allow(null, ''),
       is_active: Joi.boolean().default(true),
       // New fields for component hierarchy
       asset_type: Joi.string().valid('standalone', 'parent', 'component').default('standalone'),
@@ -476,7 +453,7 @@ allow_multi_assets: Joi.boolean()
       assigned_to: Joi.string().uuid().optional().allow(null),
       location_id: Joi.string().uuid().optional().allow(null),
       department_id: Joi.string().uuid().optional().allow(null),
-      status: Joi.string().valid('available', 'assigned', 'in_use', 'under_repair', 'disposed', 'maintenance').optional(),
+      status: Joi.string().valid('available', 'assigned', 'in_use', 'under_repair', 'disposed', 'maintenance', 'not found').optional(),
       condition_status: Joi.string().valid('excellent', 'good', 'fair', 'needs_repair', 'poor').optional(),
       importance: Joi.string().valid('critical', 'high', 'medium', 'low').optional(),
       purchase_date: Joi.date().optional().allow(null),
@@ -487,7 +464,7 @@ allow_multi_assets: Joi.boolean()
       purchase_cost: Joi.number().positive().precision(2).optional().allow(null),
       vendor_id: Joi.string().uuid().optional().allow(null),
       invoice_number: Joi.string().max(100).optional().allow(null, ''),
-      notes: Joi.string().max(1000).optional().allow(null),
+      notes: Joi.string().max(1000).optional().allow(null, ''),
       is_active: Joi.boolean().optional(),
       // New fields for component hierarchy
       asset_type: Joi.string().valid('standalone', 'parent', 'component').optional(),
