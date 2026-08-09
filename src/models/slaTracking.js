@@ -805,7 +805,7 @@ class SlaTrackingModel {
       }
 
       if (filters.sub_category_id) {
-            whereConditions.push('p.sub_category_id = @subCategoryId');
+            whereConditions.push('p.subcategory_id = @subCategoryId');
         
             request.input(
                 'subCategoryId',
@@ -1420,11 +1420,11 @@ const subCategoryBreakdownQuery = `
     LEFT JOIN assets a
         ON ta.asset_id = a.id
 
-    LEFT JOIN products p
-        ON a.product_id = p.id
+   LEFT JOIN products p
+    ON a.product_id = p.id
 
-    INNER JOIN categories sc
-        ON p.sub_category_id = sc.id
+INNER JOIN categories sc
+    ON p.subcategory_id = sc.id
 
     ${whereClause}
 
@@ -1562,10 +1562,10 @@ if (filters.product_model) {
         ON ta.asset_id = a.id
 
     LEFT JOIN products p
-        ON a.product_id = p.id
+    ON a.product_id = p.id
 
-    LEFT JOIN categories sc
-    ON p.sub_category_id = sc.id
+LEFT JOIN categories sc
+    ON p.subcategory_id = sc.id
 
     ${whereClause}
 
