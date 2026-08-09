@@ -153,13 +153,24 @@ router.get('/',
         COALESCE(assigned_user.first_name + ' ' + assigned_user.last_name, am.assigned_to_name) as assigned_to_name,
         assigned_user.email as assigned_to_email,
         assigned_user.employee_id as assigned_to_emp_code,
-        assigned_dept.department_name as assigned_to_department,
+        asset_dept.department_name as assigned_to_department,
 
         -- Current location (fallback: movement location -> user's location)
         am.location_id,
-        COALESCE(loc.name, am.location_name, user_loc.name) as location_name,
-        COALESCE(loc.building, user_loc.building) as location_building,
-        COALESCE(loc.floor, user_loc.floor) as location_floor,
+        
+        CONCAT(
+            asset_loc.name,
+            CASE
+                WHEN asset_loc.floor IS NOT NULL
+                     AND LTRIM(RTRIM(asset_loc.floor)) <> ''
+                THEN ' - ' + asset_loc.floor
+                ELSE ''
+            END
+        ) AS location_name,
+        
+        asset_loc.building AS location_building,
+        asset_loc.floor AS location_floor,
+        assigned_user.room_no as location_room_no,
         assigned_user.room_no as location_room_no,
 
         -- Previous user (for transfers)
@@ -195,12 +206,13 @@ router.get('/',
 
       FROM ASSET_MOVEMENTS am
       JOIN ASSETS a ON am.asset_id = a.id
+      LEFT JOIN locations asset_loc ON a.location_id = asset_loc.id
       LEFT JOIN products p ON a.product_id = p.id
       LEFT JOIN oems oem ON p.oem_id = oem.id
       LEFT JOIN categories cat ON p.category_id = cat.id
       LEFT JOIN USER_MASTER assigned_user ON am.assigned_to = assigned_user.user_id
-      LEFT JOIN DEPARTMENT_MASTER assigned_dept ON assigned_user.department_id = assigned_dept.department_id
-      LEFT JOIN locations loc ON am.location_id = loc.id
+      LEFT JOIN DEPARTMENT_MASTER asset_dept ON a.department_id = asset_dept.department_id
+      LEFT JOIN locations loc ON a.location_id = loc.id
       LEFT JOIN locations user_loc ON assigned_user.location_id = user_loc.id
       LEFT JOIN USER_MASTER prev_user ON am.previous_user_id = prev_user.user_id
       LEFT JOIN DEPARTMENT_MASTER prev_dept ON prev_user.department_id = prev_dept.department_id
@@ -221,11 +233,12 @@ router.get('/',
       SELECT COUNT(*) as total
       FROM ASSET_MOVEMENTS am
       JOIN ASSETS a ON am.asset_id = a.id
+      LEFT JOIN locations asset_loc ON a.location_id = asset_loc.id
       LEFT JOIN products p ON a.product_id = p.id
       LEFT JOIN oems oem ON p.oem_id = oem.id
       LEFT JOIN categories cat ON p.category_id = cat.id
       LEFT JOIN USER_MASTER assigned_user ON am.assigned_to = assigned_user.user_id
-      LEFT JOIN DEPARTMENT_MASTER assigned_dept ON assigned_user.department_id = assigned_dept.department_id
+      LEFT JOIN DEPARTMENT_MASTER asset_dept ON a.department_id = asset_dept.department_id
       LEFT JOIN USER_MASTER prev_user ON am.previous_user_id = prev_user.user_id
       LEFT JOIN DEPARTMENT_MASTER prev_dept ON prev_user.department_id = prev_dept.department_id
       WHERE 1=1 ${typeCondition} ${filterConditions}
@@ -255,6 +268,7 @@ router.get('/',
         COUNT(*) as total_count
       FROM ASSET_MOVEMENTS am
       JOIN ASSETS a ON am.asset_id = a.id
+      LEFT JOIN locations asset_loc ON a.location_id = asset_loc.id
       LEFT JOIN products p ON a.product_id = p.id
       LEFT JOIN USER_MASTER assigned_user ON am.assigned_to = assigned_user.user_id
       LEFT JOIN USER_MASTER prev_user ON am.previous_user_id = prev_user.user_id
@@ -391,9 +405,24 @@ router.get('/export/excel',
         COALESCE(assigned_user.first_name + ' ' + assigned_user.last_name, am.assigned_to_name) as [Assigned To],
         assigned_user.employee_id as [Emp Code],
         assigned_dept.department_name as [Department],
-        COALESCE(loc.name, am.location_name, user_loc.name) as [Location],
-        COALESCE(loc.building, user_loc.building) as [Building],
-        COALESCE(loc.floor, user_loc.floor) as [Floor],
+        COALESCE(
+          loc.name,
+          asset_loc.name,
+          am.location_name,
+          user_loc.name
+      ) AS location_name,
+      
+      COALESCE(
+          loc.building,
+          asset_loc.building,
+          user_loc.building
+      ) AS location_building,
+      
+      COALESCE(
+          loc.floor,
+          asset_loc.floor,
+          user_loc.floor
+      ) AS location_floor,
         COALESCE(prev_user.first_name + ' ' + prev_user.last_name, am.previous_user_name) as [Previous User],
         COALESCE(prev_loc.name, am.previous_location_name, prev_user_loc.name) as [Previous Location],
         COALESCE(performer.first_name + ' ' + performer.last_name, am.performed_by_name) as [Performed By],
@@ -402,12 +431,13 @@ router.get('/export/excel',
 
       FROM ASSET_MOVEMENTS am
       JOIN ASSETS a ON am.asset_id = a.id
+      LEFT JOIN locations asset_loc ON a.location_id = asset_loc.id
       LEFT JOIN products p ON a.product_id = p.id
       LEFT JOIN oems oem ON p.oem_id = oem.id
       LEFT JOIN categories cat ON p.category_id = cat.id
       LEFT JOIN USER_MASTER assigned_user ON am.assigned_to = assigned_user.user_id
-      LEFT JOIN DEPARTMENT_MASTER assigned_dept ON assigned_user.department_id = assigned_dept.department_id
-      LEFT JOIN locations loc ON am.location_id = loc.id
+      LEFT JOIN DEPARTMENT_MASTER asset_dept ON a.department_id = asset_dept.department_id
+      LEFT JOIN locations loc ON a.location_id = loc.id
       LEFT JOIN locations user_loc ON assigned_user.location_id = user_loc.id
       LEFT JOIN USER_MASTER prev_user ON am.previous_user_id = prev_user.user_id
       LEFT JOIN DEPARTMENT_MASTER prev_dept ON prev_user.department_id = prev_dept.department_id
@@ -532,13 +562,13 @@ router.get('/:id',
           assigned_user.email as assigned_to_email,
           assigned_user.employee_id as assigned_to_emp_code,
           NULL as assigned_to_phone,
-          assigned_dept.department_name as assigned_to_department,
+          asset_dept.department_name as assigned_to_department,
 
           -- Current location (fallback: movement location -> user's location)
           am.location_id,
-          COALESCE(loc.name, am.location_name, user_loc.name) as location_name,
-          COALESCE(loc.building, user_loc.building) as location_building,
-          COALESCE(loc.floor, user_loc.floor) as location_floor,
+        asset_loc.name AS location_name,
+        asset_loc.building AS location_building,
+        asset_loc.floor AS location_floor,
           assigned_user.room_no as location_room_no,
 
           -- Previous user (for transfers)
@@ -576,12 +606,13 @@ router.get('/:id',
 
         FROM ASSET_MOVEMENTS am
         JOIN ASSETS a ON am.asset_id = a.id
+        LEFT JOIN locations asset_loc ON a.location_id = asset_loc.id
         LEFT JOIN products p ON a.product_id = p.id
         LEFT JOIN oems oem ON p.oem_id = oem.id
         LEFT JOIN categories cat ON p.category_id = cat.id
         LEFT JOIN USER_MASTER assigned_user ON am.assigned_to = assigned_user.user_id
-        LEFT JOIN DEPARTMENT_MASTER assigned_dept ON assigned_user.department_id = assigned_dept.department_id
-        LEFT JOIN locations loc ON am.location_id = loc.id
+        LEFT JOIN DEPARTMENT_MASTER asset_dept ON a.department_id = asset_dept.department_id
+        LEFT JOIN locations loc ON a.location_id = loc.id
         LEFT JOIN locations user_loc ON assigned_user.location_id = user_loc.id
         LEFT JOIN USER_MASTER prev_user ON am.previous_user_id = prev_user.user_id
         LEFT JOIN DEPARTMENT_MASTER prev_dept ON prev_user.department_id = prev_dept.department_id
@@ -636,13 +667,13 @@ router.get('/:id/pdf',
           assigned_user.email as assigned_to_email,
           assigned_user.employee_id as assigned_to_emp_code,
           NULL as assigned_to_phone,
-          assigned_dept.department_name as assigned_to_department,
+          asset_dept.department_name as assigned_to_department,
 
           -- Current location (fallback: movement location -> user's location)
-          am.location_id,
-          COALESCE(loc.name, am.location_name, user_loc.name) as location_name,
-          COALESCE(loc.building, user_loc.building) as location_building,
-          COALESCE(loc.floor, user_loc.floor) as location_floor,
+         am.location_id,
+          asset_loc.name AS location_name,
+          asset_loc.building AS location_building,
+          asset_loc.floor AS location_floor,
 
           am.previous_user_id,
           COALESCE(prev_user.first_name + ' ' + prev_user.last_name, am.previous_user_name) as previous_user_name,
@@ -675,12 +706,13 @@ router.get('/:id/pdf',
 
         FROM ASSET_MOVEMENTS am
         JOIN ASSETS a ON am.asset_id = a.id
+        LEFT JOIN locations asset_loc ON a.location_id = asset_loc.id
         LEFT JOIN products p ON a.product_id = p.id
         LEFT JOIN oems oem ON p.oem_id = oem.id
         LEFT JOIN categories cat ON p.category_id = cat.id
         LEFT JOIN USER_MASTER assigned_user ON am.assigned_to = assigned_user.user_id
-        LEFT JOIN DEPARTMENT_MASTER assigned_dept ON assigned_user.department_id = assigned_dept.department_id
-        LEFT JOIN locations loc ON am.location_id = loc.id
+        LEFT JOIN DEPARTMENT_MASTER asset_dept ON a.department_id = asset_dept.department_id
+        LEFT JOIN locations loc ON a.location_id = loc.id
         LEFT JOIN locations user_loc ON assigned_user.location_id = user_loc.id
         LEFT JOIN USER_MASTER prev_user ON am.previous_user_id = prev_user.user_id
         LEFT JOIN DEPARTMENT_MASTER prev_dept ON prev_user.department_id = prev_dept.department_id
@@ -758,13 +790,13 @@ router.post('/pdf/bulk',
           assigned_user.email as assigned_to_email,
           assigned_user.employee_id as assigned_to_emp_code,
           NULL as assigned_to_phone,
-          assigned_dept.department_name as assigned_to_department,
+          asset_dept.department_name as assigned_to_department,
 
           -- Current location (fallback: movement location -> user's location)
           am.location_id,
-          COALESCE(loc.name, am.location_name, user_loc.name) as location_name,
-          COALESCE(loc.building, user_loc.building) as location_building,
-          COALESCE(loc.floor, user_loc.floor) as location_floor,
+          loc.name as location_name,
+          loc.building as location_building,
+          loc.floor as location_floor,
 
           am.previous_user_id,
           COALESCE(prev_user.first_name + ' ' + prev_user.last_name, am.previous_user_name) as previous_user_name,
@@ -797,12 +829,13 @@ router.post('/pdf/bulk',
 
         FROM ASSET_MOVEMENTS am
         JOIN ASSETS a ON am.asset_id = a.id
+        LEFT JOIN locations asset_loc ON a.location_id = asset_loc.id
         LEFT JOIN products p ON a.product_id = p.id
         LEFT JOIN oems oem ON p.oem_id = oem.id
         LEFT JOIN categories cat ON p.category_id = cat.id
         LEFT JOIN USER_MASTER assigned_user ON am.assigned_to = assigned_user.user_id
-        LEFT JOIN DEPARTMENT_MASTER assigned_dept ON assigned_user.department_id = assigned_dept.department_id
-        LEFT JOIN locations loc ON am.location_id = loc.id
+        LEFT JOIN DEPARTMENT_MASTER asset_dept ON a.department_id = asset_dept.department_id
+        LEFT JOIN locations loc ON a.location_id = loc.id
         LEFT JOIN locations user_loc ON assigned_user.location_id = user_loc.id
         LEFT JOIN USER_MASTER prev_user ON am.previous_user_id = prev_user.user_id
         LEFT JOIN DEPARTMENT_MASTER prev_dept ON prev_user.department_id = prev_dept.department_id
