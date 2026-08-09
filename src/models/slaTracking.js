@@ -1432,7 +1432,7 @@ INNER JOIN categories sc
         sc.id,
         sc.name
 
-    ORDER BY total_resolved DESC
+    ORDER BY total_tickets DESC
 `;
 
 const subCategoryBreakdown =
