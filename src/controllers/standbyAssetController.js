@@ -103,16 +103,21 @@ const getStandbyAssets = async (req, res) => {
         u.first_name + ' ' + u.last_name as assigned_to_name,
         u.email as assigned_to_email,
         (
-          SELECT TOP 1 sa.user_id,
-                       um.first_name + ' ' + um.last_name as name,
-                       sa.assigned_date,
-                       sa.reason
-          FROM STANDBY_ASSIGNMENTS sa
-          INNER JOIN USER_MASTER um ON sa.user_id = um.user_id
-          WHERE sa.standby_asset_id = a.id AND sa.status = 'active'
-          ORDER BY sa.assigned_date DESC
-          FOR JSON PATH
-        ) as current_assignment
+          SELECT TOP 1
+                sa.id,
+                sa.user_id,
+                um.first_name + ' ' + um.last_name AS name,
+                sa.assigned_date,
+                sa.reason,
+                sa.notes
+            FROM STANDBY_ASSIGNMENTS sa
+            INNER JOIN USER_MASTER um
+                ON sa.user_id = um.user_id
+            WHERE sa.standby_asset_id = a.id
+              AND sa.status = 'active'
+            ORDER BY sa.assigned_date DESC
+            FOR JSON PATH
+        ) AS current_assignment
       FROM assets a
       INNER JOIN products p ON a.product_id = p.id
       LEFT JOIN product_types pt ON p.type_id = pt.id
@@ -125,11 +130,26 @@ const getStandbyAssets = async (req, res) => {
       FETCH NEXT @limit ROWS ONLY
     `);
 
-    // Parse JSON assignments
-    const assets = result.recordset.map(asset => ({
-      ...asset,
-      current_assignment: asset.current_assignment ? JSON.parse(asset.current_assignment)[0] : null
-    }));
+   // Parse JSON assignments
+const assets = result.recordset.map(asset => {
+
+  let assignment = null;
+
+  if (asset.current_assignment) {
+    try {
+      const arr = JSON.parse(asset.current_assignment);
+      assignment = arr.length > 0 ? arr[0] : null;
+    } catch (e) {
+      assignment = null;
+    }
+  }
+
+  return {
+    ...asset,
+    current_assignment: assignment
+  };
+
+});
 
     // Get statistics
     const statsResult = await pool.request().query(`
