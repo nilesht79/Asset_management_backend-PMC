@@ -927,53 +927,118 @@ ON t.ticket_id = tcr.ticket_id
     }
   }
 
-    static async addComment(commentData) {
-    try {
-      const pool = await connectDB();
+  //   static async addComment(commentData) {
+  //   try {
+  //     const pool = await connectDB();
   
-      const result = await pool.request()
-        .input('ticketId', sql.UniqueIdentifier, commentData.ticket_id)
-        .input('userId', sql.UniqueIdentifier, commentData.user_id)
-        .input('commentText', sql.NVarChar(sql.MAX), commentData.comment_text)
-        .input('isInternal', sql.Bit, commentData.is_internal || false)
-        .query(`
-          INSERT INTO TICKET_COMMENTS (
-            comment_id,
-            ticket_id,
-            user_id,
-            comment_text,
-            is_internal,
-            created_at
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            NEWID(),
-            @ticketId,
-            @userId,
-            @commentText,
-            @isInternal,
-            GETUTCDATE()
-          )
-        `);
+  //     const result = await pool.request()
+  //       .input('ticketId', sql.UniqueIdentifier, commentData.ticket_id)
+  //       .input('userId', sql.UniqueIdentifier, commentData.user_id)
+  //       .input('commentText', sql.NVarChar(sql.MAX), commentData.comment_text)
+  //       .input('isInternal', sql.Bit, commentData.is_internal || false)
+  //       .query(`
+  //         INSERT INTO TICKET_COMMENTS (
+  //           comment_id,
+  //           ticket_id,
+  //           user_id,
+  //           comment_text,
+  //           is_internal,
+  //           created_at
+  //         )
+  //         OUTPUT INSERTED.*
+  //         VALUES (
+  //           NEWID(),
+  //           @ticketId,
+  //           @userId,
+  //           @commentText,
+  //           @isInternal,
+  //           GETUTCDATE()
+  //         )
+  //       `);
   
-      return result.recordset[0];
+  //     return result.recordset[0];
   
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      throw error;
-    }
-  }
+  //   } catch (error) {
+  //     console.error('Error adding comment:', error);
+  //     throw error;
+  //   }
+  // }
 
 
 
-  /**
-   * Add comment to ticket
-   */
+  // /**
+  //  * Add comment to ticket
+  //  */
+  // static async addComment(commentData) {
+  //   try {
+  //     const pool = await connectDB();
+
+  //     const query = `
+  //       INSERT INTO TICKET_COMMENTS (
+  //         comment_id,
+  //         ticket_id,
+  //         user_id,
+  //         comment_text,
+  //         is_internal,
+  //         created_at
+  //       )
+  //       OUTPUT INSERTED.*
+  //       VALUES (
+  //         NEWID(),
+  //         @ticketId,
+  //         @userId,
+  //         @commentText,
+  //         @isInternal,
+  //         GETUTCDATE()
+  //       )
+  //     `;
+
+  //     const result = await pool.request()
+  //       .input('ticketId', sql.UniqueIdentifier, commentData.ticket_id)
+  //       .input('userId', sql.UniqueIdentifier, commentData.user_id)
+  //       .input('commentText', sql.NVarChar(sql.MAX), commentData.comment_text)
+  //       .input('isInternal', sql.Bit, commentData.is_internal || false)
+  //       .query(query);
+
+  //     return result.recordset[0];
+  //   } catch (error) {
+  //     console.error('Error adding comment:', error);
+  //     throw error;
+  //   }
+  // }
+
   static async addComment(commentData) {
-    try {
-      const pool = await connectDB();
+  const pool = await connectDB();
+  const transaction = new sql.Transaction(pool);
 
-      const query = `
+  try {
+    await transaction.begin();
+
+    // =========================================================
+    // 1. INSERT COMMENT
+    // =========================================================
+    const commentResult = await new sql.Request(transaction)
+      .input(
+        'ticketId',
+        sql.UniqueIdentifier,
+        commentData.ticket_id
+      )
+      .input(
+        'userId',
+        sql.UniqueIdentifier,
+        commentData.user_id
+      )
+      .input(
+        'commentText',
+        sql.NVarChar(sql.MAX),
+        commentData.comment_text
+      )
+      .input(
+        'isInternal',
+        sql.Bit,
+        commentData.is_internal || false
+      )
+      .query(`
         INSERT INTO TICKET_COMMENTS (
           comment_id,
           ticket_id,
@@ -991,51 +1056,231 @@ ON t.ticket_id = tcr.ticket_id
           @isInternal,
           GETUTCDATE()
         )
-      `;
+      `);
 
-      const result = await pool.request()
-        .input('ticketId', sql.UniqueIdentifier, commentData.ticket_id)
-        .input('userId', sql.UniqueIdentifier, commentData.user_id)
-        .input('commentText', sql.NVarChar(sql.MAX), commentData.comment_text)
-        .input('isInternal', sql.Bit, commentData.is_internal || false)
-        .query(query);
+    const comment = commentResult.recordset[0];
 
-      return result.recordset[0];
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      throw error;
+    // =========================================================
+    // 2. INSERT OPTIONAL ATTACHMENTS
+    //    LINK EACH FILE TO THIS SPECIFIC COMMENT
+    // =========================================================
+    const attachments = [];
+
+    if (
+      commentData.attachments &&
+      commentData.attachments.length > 0
+    ) {
+      for (const file of commentData.attachments) {
+
+        const attachmentResult =
+          await new sql.Request(transaction)
+            .input(
+              'ticketId',
+              sql.UniqueIdentifier,
+              commentData.ticket_id
+            )
+            .input(
+              'commentId',
+              sql.UniqueIdentifier,
+              comment.comment_id
+            )
+            .input(
+              'userId',
+              sql.UniqueIdentifier,
+              commentData.user_id
+            )
+            .input(
+              'fileName',
+              sql.NVarChar(255),
+              file.file_name
+            )
+            .input(
+              'filePath',
+              sql.NVarChar(500),
+              file.file_path
+            )
+            .input(
+              'fileType',
+              sql.VarChar(50),
+              file.file_type
+            )
+            .input(
+              'fileSize',
+              sql.BigInt,
+              file.file_size
+            )
+            .query(`
+              INSERT INTO TICKET_ATTACHMENTS (
+                attachment_id,
+                ticket_id,
+                comment_id,
+                uploaded_by_user_id,
+                file_name,
+                file_path,
+                file_type,
+                file_size,
+                created_at
+              )
+              OUTPUT INSERTED.*
+              VALUES (
+                NEWID(),
+                @ticketId,
+                @commentId,
+                @userId,
+                @fileName,
+                @filePath,
+                @fileType,
+                @fileSize,
+                GETUTCDATE()
+              )
+            `);
+
+        attachments.push(
+          attachmentResult.recordset[0]
+        );
+      }
     }
+
+    // =========================================================
+    // 3. COMMIT
+    // =========================================================
+    await transaction.commit();
+
+    return {
+      ...comment,
+      attachments
+    };
+
+  } catch (error) {
+
+    try {
+      await transaction.rollback();
+    } catch (rollbackError) {
+      console.error(
+        'Transaction rollback error:',
+        rollbackError
+      );
+    }
+
+    console.error(
+      'Error adding comment with attachments:',
+      error
+    );
+
+    throw error;
   }
+}
 
   /**
    * Get comments for a ticket
-   */
-  static async getComments(ticketId) {
-    try {
-      const pool = await connectDB();
+  //  */
+  // static async getComments(ticketId) {
+  //   try {
+  //     const pool = await connectDB();
 
-      const query = `
+  //     const query = `
+  //       SELECT
+  //         c.*,
+  //         u.first_name + ' ' + u.last_name AS user_name,
+  //         u.email AS user_email,
+  //         u.role AS user_role
+  //       FROM TICKET_COMMENTS c
+  //       LEFT JOIN USER_MASTER u ON c.user_id = u.user_id
+  //       WHERE c.ticket_id = @ticketId
+  //       ORDER BY c.created_at ASC
+  //     `;
+
+  //     const result = await pool.request()
+  //       .input('ticketId', sql.UniqueIdentifier, ticketId)
+  //       .query(query);
+
+  //     return result.recordset;
+  //   } catch (error) {
+  //     console.error('Error fetching comments:', error);
+  //     throw error;
+  //   }
+  // }
+
+static async getComments(ticketId) {
+  try {
+    const pool = await connectDB();
+
+    // =========================================================
+    // 1. GET COMMENTS
+    // =========================================================
+    const query = `
+      SELECT
+        c.*,
+        u.first_name + ' ' + u.last_name AS user_name,
+        u.email AS user_email,
+        u.role AS user_role
+      FROM TICKET_COMMENTS c
+      LEFT JOIN USER_MASTER u
+        ON c.user_id = u.user_id
+      WHERE c.ticket_id = @ticketId
+      ORDER BY c.created_at ASC
+    `;
+
+    const result = await pool.request()
+      .input(
+        'ticketId',
+        sql.UniqueIdentifier,
+        ticketId
+      )
+      .query(query);
+
+    const comments = result.recordset;
+
+    // =========================================================
+    // 2. GET ATTACHMENTS FOR THIS TICKET
+    // =========================================================
+    const attachmentResult = await pool.request()
+      .input(
+        'ticketId',
+        sql.UniqueIdentifier,
+        ticketId
+      )
+      .query(`
         SELECT
-          c.*,
-          u.first_name + ' ' + u.last_name AS user_name,
-          u.email AS user_email,
-          u.role AS user_role
-        FROM TICKET_COMMENTS c
-        LEFT JOIN USER_MASTER u ON c.user_id = u.user_id
-        WHERE c.ticket_id = @ticketId
-        ORDER BY c.created_at ASC
-      `;
+          attachment_id,
+          ticket_id,
+          comment_id,
+          uploaded_by_user_id,
+          file_name,
+          file_path,
+          file_type,
+          file_size,
+          created_at
+        FROM TICKET_ATTACHMENTS
+        WHERE ticket_id = @ticketId
+        ORDER BY created_at ASC
+      `);
 
-      const result = await pool.request()
-        .input('ticketId', sql.UniqueIdentifier, ticketId)
-        .query(query);
+    const attachments = attachmentResult.recordset;
 
-      return result.recordset;
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-      throw error;
-    }
+    // =========================================================
+    // 3. LINK ATTACHMENTS TO THEIR OWN COMMENT
+    // =========================================================
+    return comments.map(comment => ({
+      ...comment,
+
+      attachments: attachments.filter(
+        attachment =>
+          attachment.comment_id === comment.comment_id
+      )
+    }));
+
+  } catch (error) {
+
+    console.error(
+      'Error fetching comments:',
+      error
+    );
+
+    throw error;
   }
+}
+  
 
   /**
    * Get dynamic filter options based on existing data
