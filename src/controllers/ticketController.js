@@ -1395,43 +1395,146 @@ Helpdesk
    * Add comment to ticket
    * POST /api/tickets/:id/comments
    */
-  static async addComment(req, res) {
-    try {
-      const { id } = req.params;
-      const { comment_text, is_internal } = req.body;
-      const userId = req.user?.id || req.oauth?.user?.id;
-      const userRole = req.user?.role || req.oauth?.user?.role;
+  // static async addComment(req, res) {
+  //   try {
+  //     const { id } = req.params;
+  //     const { comment_text, is_internal } = req.body;
+  //     const userId = req.user?.id || req.oauth?.user?.id;
+  //     const userRole = req.user?.role || req.oauth?.user?.role;
 
-      if (!comment_text) {
-        return sendError(res, 'Comment text is required', 400);
-      }
+  //     if (!comment_text) {
+  //       return sendError(res, 'Comment text is required', 400);
+  //     }
 
-      // Check if ticket exists
-      const existingTicket = await TicketModel.getTicketById(id);
-      if (!existingTicket) {
-        return sendNotFound(res, 'Ticket not found');
-      }
+  //     // Check if ticket exists
+  //     const existingTicket = await TicketModel.getTicketById(id);
+  //     if (!existingTicket) {
+  //       return sendNotFound(res, 'Ticket not found');
+  //     }
 
-      // If user is an employee, verify they own the ticket
-      if (userRole === 'employee' && existingTicket.created_by_user_id !== userId) {
-        return sendError(res, 'Access denied. You can only comment on your own tickets.', 403);
-      }
+  //     // If user is an employee, verify they own the ticket
+  //     if (userRole === 'employee' && existingTicket.created_by_user_id !== userId) {
+  //       return sendError(res, 'Access denied. You can only comment on your own tickets.', 403);
+  //     }
 
-      const commentData = {
-        ticket_id: id,
-        user_id: userId,
-        comment_text,
-        is_internal: is_internal || false
-      };
+  //     const commentData = {
+  //       ticket_id: id,
+  //       user_id: userId,
+  //       comment_text,
+  //       is_internal: is_internal || false
+  //     };
 
-      const comment = await TicketModel.addComment(commentData);
+  //     const comment = await TicketModel.addComment(commentData);
 
-      return sendCreated(res, comment, 'Comment added successfully');
-    } catch (error) {
-      console.error('Add comment error:', error);
-      return sendError(res, error.message || 'Failed to add comment', 500);
+  //     return sendCreated(res, comment, 'Comment added successfully');
+  //   } catch (error) {
+  //     console.error('Add comment error:', error);
+  //     return sendError(res, error.message || 'Failed to add comment', 500);
+  //   }
+  // }
+
+
+  /**
+ * Add comment to ticket with optional attachment(s)
+ * POST /api/tickets/:id/comments
+ */
+static async addComment(req, res) {
+  try {
+    const { id } = req.params;
+    const { comment_text, is_internal } = req.body;
+
+    const userId =
+      req.user?.id ||
+      req.oauth?.user?.id;
+
+    const userRole =
+      req.user?.role ||
+      req.oauth?.user?.role;
+
+    // ---------------------------------------------------------
+    // COMMENT IS REQUIRED
+    // FILE IS OPTIONAL
+    // ---------------------------------------------------------
+    if (!comment_text || !comment_text.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a comment.'
+      });
     }
+
+    // ---------------------------------------------------------
+    // CHECK TICKET EXISTS
+    // ---------------------------------------------------------
+    const existingTicket = await TicketModel.getTicketById(id);
+
+    if (!existingTicket) {
+      return sendNotFound(res, 'Ticket not found');
+    }
+
+    // ---------------------------------------------------------
+    // EMPLOYEE ACCESS CHECK
+    // ---------------------------------------------------------
+    if (
+      userRole === 'employee' &&
+      existingTicket.created_by_user_id !== userId
+    ) {
+      return sendError(
+        res,
+        'Access denied. You can only comment on your own tickets.',
+        403
+      );
+    }
+
+    // ---------------------------------------------------------
+    // PREPARE ATTACHMENTS
+    // FILE IS OPTIONAL
+    // ---------------------------------------------------------
+    const attachments = [];
+
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file) => {
+        attachments.push({
+          file_name: file.filename,
+          original_name: file.originalname,
+          file_path: `/uploads/ticket-comments/${file.filename}`,
+          file_type: file.mimetype,
+          file_size: file.size
+        });
+      });
+    }
+
+    // ---------------------------------------------------------
+    // CREATE COMMENT + ATTACHMENTS
+    // ---------------------------------------------------------
+    const commentData = {
+      ticket_id: id,
+      user_id: userId,
+      comment_text: comment_text.trim(),
+      is_internal:
+        is_internal === true ||
+        is_internal === 'true',
+      attachments
+    };
+
+    const comment =
+      await TicketModel.addComment(commentData);
+
+    return sendCreated(
+      res,
+      comment,
+      'Comment added successfully'
+    );
+
+  } catch (error) {
+    console.error('Add comment error:', error);
+
+    return sendError(
+      res,
+      error.message || 'Failed to add comment',
+      500
+    );
   }
+}
 
   /**
    * Get comments for a ticket
