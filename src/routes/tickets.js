@@ -5,10 +5,53 @@
 
 const express = require('express');
 const router = express.Router();
+
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
 const TicketController = require('../controllers/ticketController');
 const TicketAssetsController = require('../controllers/ticketAssetsController');
 const { authenticateOAuth } = require('../middleware/oauth-auth');
 const { requireRole } = require('../middleware/permissions');
+
+// ============================================================
+// TICKET COMMENT ATTACHMENT UPLOAD
+// ============================================================
+
+const ticketCommentsUploadDir = path.join(
+  __dirname,
+  '../../uploads/ticket-comments'
+);
+
+// Create upload directory if it does not exist
+if (!fs.existsSync(ticketCommentsUploadDir)) {
+  fs.mkdirSync(ticketCommentsUploadDir, {
+    recursive: true
+  });
+}
+
+const ticketCommentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, ticketCommentsUploadDir);
+  },
+
+  filename: (req, file, cb) => {
+    const uniqueName =
+      `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
+
+    cb(null, uniqueName);
+  }
+});
+
+const uploadTicketCommentAttachments = multer({
+  storage: ticketCommentStorage,
+
+  limits: {
+    files: 5,
+    fileSize: 10 * 1024 * 1024 // 10 MB per file
+  }
+});
 
 // Roles that can manage tickets
 const TICKET_MANAGERS = ['it_head', 'coordinator', 'superadmin', 'department_coordinator', 'admin', 'engineer', 'department_head'];
@@ -379,10 +422,18 @@ router.post(
  * @desc    Add comment to ticket
  * @access  All authenticated users (employees can only comment on their own tickets)
  */
+// router.post(
+//   '/:id/comments',
+//   authenticateOAuth,
+//   requireRole(ALL_AUTHENTICATED),
+//   TicketController.addComment
+// );
+
 router.post(
   '/:id/comments',
   authenticateOAuth,
   requireRole(ALL_AUTHENTICATED),
+  uploadTicketCommentAttachments.array('attachments', 5),
   TicketController.addComment
 );
 
