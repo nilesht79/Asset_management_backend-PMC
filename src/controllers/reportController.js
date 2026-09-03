@@ -12,9 +12,9 @@ const getReport = async (req, res) => {
     const { category } = req.params;
 
     const allowedCategories = [
-      'VC Reports',
-      'Server Reports'
-    ];
+  'VC Calls',
+  'Server Issue'
+];
 
     if (!allowedCategories.includes(category)) {
       return res.status(400).json({
@@ -146,12 +146,12 @@ const getReport = async (req, res) => {
 };
 
 const getVCCallReport = async (req, res) => {
-  req.params.category = 'VC Reports';
+  req.params.category = 'VC Calls';
   return getReport(req, res);
 };
 
 const getServerReport = async (req, res) => {
-  req.params.category = 'Server Reports';
+  req.params.category = 'Server Issue';
   return getReport(req, res);
 };
 
