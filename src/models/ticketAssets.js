@@ -312,6 +312,7 @@ class TicketAssetsModel {
           p.model AS product_model,
           o.name AS oem_name,
           c.name AS category_name,
+          c.name AS subcategory_name,
           0 AS is_component_of_assigned
         FROM assets a
         INNER JOIN products p ON a.product_id = p.id
@@ -342,6 +343,7 @@ class TicketAssetsModel {
           p.model AS product_model,
           o.name AS oem_name,
           c.name AS category_name,
+          c.name AS subcategory_name,
           1 AS is_component_of_assigned
         FROM assets comp
         INNER JOIN assets parent ON comp.parent_asset_id = parent.id
