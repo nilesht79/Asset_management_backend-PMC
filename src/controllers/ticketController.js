@@ -732,9 +732,22 @@ Helpdesk
           if (syncResult.added > 0 || syncResult.removed > 0) {
             assetsChanged = true;
           }
-        } catch (syncError) {
-          console.error('Error syncing ticket assets:', syncError.message);
-        }
+        // } catch (syncError) {
+        //   console.error('Error syncing ticket assets:', syncError.message);
+        // }
+
+          } catch (syncError) {
+    console.error(
+        `Error syncing assets for ticket ${existingTicket.ticket_number}:`,
+        syncError
+    );
+
+    return sendError(
+        res,
+        `Ticket was not updated because the asset update failed: ${syncError.message}`,
+        500
+    );
+}
       }
 
       // Sync software if provided and category is Software
