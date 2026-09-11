@@ -295,6 +295,72 @@ class TicketAssetsModel {
     try {
       const pool = await connectDB();
 
+      // const query = `
+      //   -- Get directly assigned assets (standalone and parent)
+      //   SELECT
+      //     a.id,
+      //     a.asset_tag,
+      //     a.serial_number,
+      //     a.asset_type,
+      //     a.status,
+      //     a.condition_status,
+      //     a.parent_asset_id,
+      //     ISNULL(l.name, 'N/A') AS location_name,
+      //     ISNULL(d.department_name, 'N/A') AS department_name,
+      //     NULL AS parent_asset_tag,
+      //     p.name AS product_name,
+      //     p.model AS product_model,
+      //     o.name AS oem_name,
+      //     c.name AS category_name,
+      //     c.name AS subcategory_name,
+      //     0 AS is_component_of_assigned
+      //   FROM assets a
+      //   INNER JOIN products p ON a.product_id = p.id
+      //   LEFT JOIN oems o ON p.oem_id = o.id
+      //   LEFT JOIN categories c ON p.category_id = c.id
+      //   LEFT JOIN locations l ON TRY_CAST(a.location_id AS UNIQUEIDENTIFIER) = l.id
+      //   LEFT JOIN DEPARTMENT_MASTER d ON TRY_CAST(a.department_id AS UNIQUEIDENTIFIER) = d.department_id
+      //   WHERE a.assigned_to = @userId
+      //     AND a.is_active = 1
+      //     AND a.status <> 'retired'
+      //     AND a.asset_type IN ('standalone', 'parent')
+
+      //   UNION ALL
+
+      //   -- Get components of assigned parent assets
+      //   SELECT
+      //     comp.id,
+      //     comp.asset_tag,
+      //     comp.serial_number,
+      //     comp.asset_type,
+      //     comp.status,
+      //     comp.condition_status,
+      //     comp.parent_asset_id,
+      //     ISNULL(pl.name, 'N/A') AS location_name,
+      //     ISNULL(pd.department_name, 'N/A') AS department_name,
+      //     parent.asset_tag AS parent_asset_tag,
+      //     p.name AS product_name,
+      //     p.model AS product_model,
+      //     o.name AS oem_name,
+      //     c.name AS category_name,
+      //     c.name AS subcategory_name,
+      //     1 AS is_component_of_assigned
+      //   FROM assets comp
+      //   INNER JOIN assets parent ON comp.parent_asset_id = parent.id
+      //   INNER JOIN products p ON comp.product_id = p.id
+      //   LEFT JOIN oems o ON p.oem_id = o.id
+      //   LEFT JOIN categories c ON p.category_id = c.id
+      //   LEFT JOIN locations pl ON TRY_CAST(parent.location_id AS UNIQUEIDENTIFIER) = pl.id
+      //   LEFT JOIN DEPARTMENT_MASTER pd ON TRY_CAST(parent.department_id AS UNIQUEIDENTIFIER) = pd.department_id
+      //   WHERE parent.assigned_to = @userId
+      //     AND comp.is_active = 1
+      //     AND comp.status <> 'retired'
+      //     AND parent.status <> 'retired'
+      //     AND comp.asset_type = 'component'
+
+      //   ORDER BY asset_type, product_name, asset_tag
+      // `;
+
       const query = `
         -- Get directly assigned assets (standalone and parent)
         SELECT
@@ -305,21 +371,18 @@ class TicketAssetsModel {
           a.status,
           a.condition_status,
           a.parent_asset_id,
-          ISNULL(l.name, 'N/A') AS location_name,
-          ISNULL(d.department_name, 'N/A') AS department_name,
           NULL AS parent_asset_tag,
           p.name AS product_name,
           p.model AS product_model,
           o.name AS oem_name,
           c.name AS category_name,
-          c.name AS subcategory_name,
+          sc.name AS subcategory_name,
           0 AS is_component_of_assigned
         FROM assets a
         INNER JOIN products p ON a.product_id = p.id
         LEFT JOIN oems o ON p.oem_id = o.id
         LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN locations l ON TRY_CAST(a.location_id AS UNIQUEIDENTIFIER) = l.id
-        LEFT JOIN DEPARTMENT_MASTER d ON TRY_CAST(a.department_id AS UNIQUEIDENTIFIER) = d.department_id
+        LEFT JOIN categories sc ON p.subcategory_id = sc.id
         WHERE a.assigned_to = @userId
           AND a.is_active = 1
           AND a.status <> 'retired'
@@ -336,22 +399,19 @@ class TicketAssetsModel {
           comp.status,
           comp.condition_status,
           comp.parent_asset_id,
-          ISNULL(pl.name, 'N/A') AS location_name,
-          ISNULL(pd.department_name, 'N/A') AS department_name,
           parent.asset_tag AS parent_asset_tag,
           p.name AS product_name,
           p.model AS product_model,
           o.name AS oem_name,
           c.name AS category_name,
-          c.name AS subcategory_name,
+          sc.name AS subcategory_name,
           1 AS is_component_of_assigned
         FROM assets comp
         INNER JOIN assets parent ON comp.parent_asset_id = parent.id
         INNER JOIN products p ON comp.product_id = p.id
         LEFT JOIN oems o ON p.oem_id = o.id
         LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN locations pl ON TRY_CAST(parent.location_id AS UNIQUEIDENTIFIER) = pl.id
-        LEFT JOIN DEPARTMENT_MASTER pd ON TRY_CAST(parent.department_id AS UNIQUEIDENTIFIER) = pd.department_id
+        LEFT JOIN categories sc ON p.subcategory_id = sc.id
         WHERE parent.assigned_to = @userId
           AND comp.is_active = 1
           AND comp.status <> 'retired'
