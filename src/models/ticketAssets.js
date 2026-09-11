@@ -312,13 +312,11 @@ class TicketAssetsModel {
           p.model AS product_model,
           o.name AS oem_name,
           c.name AS category_name,
-          sc.SubCategory AS subcategory_name,
           0 AS is_component_of_assigned
         FROM assets a
         INNER JOIN products p ON a.product_id = p.id
         LEFT JOIN oems o ON p.oem_id = o.id
         LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN SubCategoryMaster sc ON p.subcategory_id = sc.SubCategoryID
         LEFT JOIN locations l ON TRY_CAST(a.location_id AS UNIQUEIDENTIFIER) = l.id
         LEFT JOIN DEPARTMENT_MASTER d ON TRY_CAST(a.department_id AS UNIQUEIDENTIFIER) = d.department_id
         WHERE a.assigned_to = @userId
@@ -344,14 +342,12 @@ class TicketAssetsModel {
           p.model AS product_model,
           o.name AS oem_name,
           c.name AS category_name,
-          sc.SubCategory AS subcategory_name,
           1 AS is_component_of_assigned
         FROM assets comp
         INNER JOIN assets parent ON comp.parent_asset_id = parent.id
         INNER JOIN products p ON comp.product_id = p.id
         LEFT JOIN oems o ON p.oem_id = o.id
         LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN SubCategoryMaster sc ON p.subcategory_id = sc.SubCategoryID
         LEFT JOIN locations pl ON TRY_CAST(parent.location_id AS UNIQUEIDENTIFIER) = pl.id
         LEFT JOIN DEPARTMENT_MASTER pd ON TRY_CAST(parent.department_id AS UNIQUEIDENTIFIER) = pd.department_id
         WHERE parent.assigned_to = @userId
