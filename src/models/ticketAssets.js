@@ -587,47 +587,143 @@ class TicketAssetsModel {
    * @param {string} updatedBy - User ID making the change
    * @returns {Object} - { added: number, removed: number }
    */
-  static async syncTicketAssets(ticketId, newAssetIds, updatedBy) {
-    try {
-      const pool = await connectDB();
+  // static async syncTicketAssets(ticketId, newAssetIds, updatedBy) {
+  //   try {
+  //     const pool = await connectDB();
 
-      // Get current linked assets
-      const currentResult = await pool.request()
+  //     // Get current linked assets
+  //     const currentResult = await pool.request()
+  //       .input('ticketId', sql.UniqueIdentifier, ticketId)
+  //       .query(`SELECT asset_id FROM TICKET_ASSETS WHERE ticket_id = @ticketId`);
+
+  //     const currentAssetIds = currentResult.recordset.map(r => r.asset_id);
+
+  //     // Determine assets to add and remove
+  //     const toAdd = newAssetIds.filter(id => !currentAssetIds.includes(id));
+  //     const toRemove = currentAssetIds.filter(id => !newAssetIds.includes(id));
+
+  //     let addedCount = 0;
+  //     let removedCount = 0;
+
+  //     // Remove assets that are no longer selected
+  //     if (toRemove.length > 0) {
+  //       for (const assetId of toRemove) {
+  //         await pool.request()
+  //           .input('ticketId', sql.UniqueIdentifier, ticketId)
+  //           .input('assetId', sql.UniqueIdentifier, assetId)
+  //           .query(`DELETE FROM TICKET_ASSETS WHERE ticket_id = @ticketId AND asset_id = @assetId`);
+  //         removedCount++;
+  //       }
+  //     }
+
+  //     // Add newly selected assets
+  //     if (toAdd.length > 0) {
+  //       const results = await this.linkMultipleAssets(ticketId, toAdd, updatedBy);
+  //       addedCount = results.length;
+  //     }
+
+  //     return { added: addedCount, removed: removedCount };
+  //   } catch (error) {
+  //     console.error('Error syncing ticket assets:', error);
+  //     throw error;
+  //   }
+  // }
+
+  /**
+ * Sync ticket assets - adds new assets and removes unselected assets
+ * @param {string} ticketId - Ticket ID
+ * @param {Array} newAssetIds - Asset IDs that should be linked
+ * @param {string} updatedBy - User ID making the change
+ * @returns {Object} - { added: number, removed: number }
+ */
+static async syncTicketAssets(ticketId, newAssetIds, updatedBy) {
+  try {
+    const pool = await connectDB();
+
+    // Always normalize the incoming list
+    const requestedAssetIds = Array.isArray(newAssetIds)
+      ? [...new Set(
+          newAssetIds
+            .filter(Boolean)
+            .map(id => String(id).trim().toLowerCase())
+        )]
+      : [];
+
+    // Get currently linked assets
+    const currentResult = await pool.request()
+      .input('ticketId', sql.UniqueIdentifier, ticketId)
+      .query(`
+        SELECT asset_id
+        FROM TICKET_ASSETS
+        WHERE ticket_id = @ticketId
+      `);
+
+    // Normalize DB UUIDs as well
+    const currentAssetIds = currentResult.recordset
+      .map(row => String(row.asset_id).trim().toLowerCase());
+
+    // Assets to add
+    const toAdd = requestedAssetIds.filter(
+      assetId => !currentAssetIds.includes(assetId)
+    );
+
+    // Assets to remove
+    const toRemove = currentAssetIds.filter(
+      assetId => !requestedAssetIds.includes(assetId)
+    );
+
+    console.log('========== SYNC TICKET ASSETS ==========');
+    console.log('Ticket ID:', ticketId);
+    console.log('Current Asset IDs:', currentAssetIds);
+    console.log('Requested Asset IDs:', requestedAssetIds);
+    console.log('Assets To Add:', toAdd);
+    console.log('Assets To Remove:', toRemove);
+    console.log('=========================================');
+
+    let addedCount = 0;
+    let removedCount = 0;
+
+    // Remove unselected assets
+    for (const assetId of toRemove) {
+      const result = await pool.request()
         .input('ticketId', sql.UniqueIdentifier, ticketId)
-        .query(`SELECT asset_id FROM TICKET_ASSETS WHERE ticket_id = @ticketId`);
+        .input('assetId', sql.UniqueIdentifier, assetId)
+        .query(`
+          DELETE FROM TICKET_ASSETS
+          WHERE ticket_id = @ticketId
+            AND asset_id = @assetId
+        `);
 
-      const currentAssetIds = currentResult.recordset.map(r => r.asset_id);
-
-      // Determine assets to add and remove
-      const toAdd = newAssetIds.filter(id => !currentAssetIds.includes(id));
-      const toRemove = currentAssetIds.filter(id => !newAssetIds.includes(id));
-
-      let addedCount = 0;
-      let removedCount = 0;
-
-      // Remove assets that are no longer selected
-      if (toRemove.length > 0) {
-        for (const assetId of toRemove) {
-          await pool.request()
-            .input('ticketId', sql.UniqueIdentifier, ticketId)
-            .input('assetId', sql.UniqueIdentifier, assetId)
-            .query(`DELETE FROM TICKET_ASSETS WHERE ticket_id = @ticketId AND asset_id = @assetId`);
-          removedCount++;
-        }
+      if (result.rowsAffected[0] > 0) {
+        removedCount += result.rowsAffected[0];
       }
-
-      // Add newly selected assets
-      if (toAdd.length > 0) {
-        const results = await this.linkMultipleAssets(ticketId, toAdd, updatedBy);
-        addedCount = results.length;
-      }
-
-      return { added: addedCount, removed: removedCount };
-    } catch (error) {
-      console.error('Error syncing ticket assets:', error);
-      throw error;
     }
+
+    // Add newly selected assets
+    if (toAdd.length > 0) {
+      const results = await this.linkMultipleAssets(
+        ticketId,
+        toAdd,
+        updatedBy
+      );
+
+      addedCount = results.length;
+    }
+
+    console.log(
+      `Ticket ${ticketId}: ${addedCount} asset(s) added, ${removedCount} asset(s) removed`
+    );
+
+    return {
+      added: addedCount,
+      removed: removedCount
+    };
+
+  } catch (error) {
+    console.error('Error syncing ticket assets:', error);
+    throw error;
   }
+}
 
   /**
    * Sync ticket software - adds new, removes unselected
