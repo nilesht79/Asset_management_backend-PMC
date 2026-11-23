@@ -24,7 +24,12 @@ router.use(authenticateToken);
  * Download Excel template for bulk user upload
  */
 router.get('/template',
-  requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  // requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+           requireRole([
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPERADMIN,
+  USER_ROLES.COORDINATOR
+])
   asyncHandler(async (req, res) => {
     const pool = await connectDB();
 
@@ -54,7 +59,12 @@ router.get('/template',
  * Upload and process Excel file for bulk user creation
  */
 router.post('/',
-  requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  // requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  requireRole([
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPERADMIN,
+  USER_ROLES.COORDINATOR
+])
   upload.single('file'),
   handleUploadError,
   asyncHandler(async (req, res) => {
@@ -119,6 +129,22 @@ router.post('/',
           try {
             // Process and prepare user data
             const userData = await processUserForInsertion(result.user, departments, batchEmails, pool, employeeIdTracker, locations);
+
+            const currentUser = req.oauth.user;
+
+            if (currentUser.role === USER_ROLES.COORDINATOR) {
+              const allowedRoles = [
+                USER_ROLES.DEPARTMENT_COORDINATOR,
+                USER_ROLES.ENGINEER,
+                USER_ROLES.EMPLOYEE
+              ];
+            
+              if (!allowedRoles.includes(userData.role)) {
+                throw new Error(
+                  `Coordinator cannot bulk upload users with role: ${userData.role}`
+                );
+              }
+            }
 
             // Add email to batch set to avoid duplicates
             batchEmails.add(userData.email.toLowerCase());
@@ -216,7 +242,12 @@ router.post('/',
  * Validate Excel file without inserting data
  */
 router.post('/validate',
-  requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  // requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  requireRole([
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPERADMIN,
+  USER_ROLES.COORDINATOR
+])
   upload.single('file'),
   handleUploadError,
   asyncHandler(async (req, res) => {
