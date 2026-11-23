@@ -667,7 +667,8 @@ router.post('/',
 // PUT /users/:id - Update user
 router.put('/:id',
   validateUUID('id'),
-  requireSelfOrRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD]),
+  // requireSelfOrRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD]),
+  requireSelfOrRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD, USER_ROLES.COORDINATOR]),         
   validateBody(validators.user.update),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -702,7 +703,8 @@ router.put('/:id',
 
     // Only allow users to update their own profile (limited fields) or admins to update any user
     const isOwnProfile = req.user.id === id;
-    const canUpdateAllFields = [USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD].includes(req.user.role);
+    // const canUpdateAllFields = [USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD].includes(req.user.role);
+    const canUpdateAllFields = [ USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD, USER_ROLES.COORDINATOR].includes(req.user.role);
 
     if (isOwnProfile && !canUpdateAllFields) {
       // Users can only update their own name
@@ -878,7 +880,8 @@ router.put('/:id',
 // DELETE /users/:id - Delete user (soft delete)
 router.delete('/:id',
   validateUUID('id'),
-  requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  // requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.COORDINATOR]),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
