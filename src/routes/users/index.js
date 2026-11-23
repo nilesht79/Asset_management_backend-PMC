@@ -19,14 +19,19 @@ const { generateSecurePassword } = require('../../utils/password-generator');
 
 const router = express.Router();
 
-// Check whether the logged-in user can manage a target role
-const canManageTargetRole = (currentRole, targetRole) => {
-  const hierarchy = authConfig.ROLE_HIERARCHY || {};
+// Roles that Coordinator is allowed to manage
+const COORDINATOR_MANAGEABLE_ROLES = [
+  'it_head',
+  'department_head',
+  'department_coordinator',
+  'engineer',
+  'employee'
+];
 
-  const currentLevel = hierarchy[currentRole] || 0;
-  const targetLevel = hierarchy[targetRole] || 0;
-
-  return currentLevel > targetLevel;
+const canCoordinatorManageRole = (targetRole) => {
+  return COORDINATOR_MANAGEABLE_ROLES.includes(
+    String(targetRole || '').toLowerCase()
+  );
 };
 
 // Mount bulk upload routes
@@ -507,23 +512,18 @@ router.post('/',
 
     const pool = await connectDB();
 
-    const currentUser = req.oauth.user;
-
-if (currentUser.role === USER_ROLES.COORDINATOR) {
-  const allowedRoles = [
-    USER_ROLES.DEPARTMENT_COORDINATOR,
-    USER_ROLES.ENGINEER,
-    USER_ROLES.EMPLOYEE
-  ];
-
-  if (!allowedRoles.includes(role)) {
-    return sendError(
-      res,
-      'Coordinator can create only Department Coordinator, Engineer and Employee users',
-      403
-    );
-  }
-}
+      const currentUser = req.oauth.user;
+      
+      if (
+        currentUser.role === USER_ROLES.COORDINATOR &&
+        !canCoordinatorManageRole(role)
+      ) {
+        return sendError(
+          res,
+          'Coordinator cannot create Admin or SuperAdmin users',
+          403
+        );
+      }
 
     // Auto-generate email if not provided
     let finalEmail = email;
@@ -734,24 +734,66 @@ router.put('/:id',
     // // const canUpdateAllFields = [USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD].includes(req.user.role);
     // const canUpdateAllFields = [ USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD, USER_ROLES.COORDINATOR].includes(req.user.role);
 
-    const currentUser = req.oauth.user;
-
+   const currentUser = req.oauth.user;
 const isOwnProfile = currentUser.id === id;
 
-const canUpdateAllFields = [
+// const canUpdateAllFields = [
+//   USER_ROLES.ADMIN,
+//   USER_ROLES.SUPERADMIN,
+//   USER_ROLES.DEPARTMENT_HEAD,
+//   USER_ROLES.COORDINATOR
+// ].includes(currentUser.role);
+
+    const canUpdateAllFields = [
   USER_ROLES.ADMIN,
   USER_ROLES.SUPERADMIN,
   USER_ROLES.DEPARTMENT_HEAD,
   USER_ROLES.COORDINATOR
-].includes(currentUser.role);
+].includes(currentUser.role) && !isOwnProfile;
 
-    if (isOwnProfile && !canUpdateAllFields) {
-      // Users can only update their own name
-      if (role || department_id || location_id || employee_id || is_active !== undefined) {
-        return sendError(res, 'You can only update your name', 403);
-      }
-    }
+// Coordinator cannot modify Admin or SuperAdmin accounts
+if (
+  currentUser.role === USER_ROLES.COORDINATOR &&
+  !isOwnProfile &&
+  !canCoordinatorManageRole(existingUser.role)
+) {
+  return sendError(
+    res,
+    'Coordinator cannot modify Admin or SuperAdmin users',
+    403
+  );
+}
 
+// Coordinator cannot assign Admin or SuperAdmin roles
+if (
+  currentUser.role === USER_ROLES.COORDINATOR &&
+  role !== undefined &&
+  !canCoordinatorManageRole(role)
+) {
+  return sendError(
+    res,
+    'Coordinator cannot assign Admin or SuperAdmin roles',
+    403
+  );
+}
+
+// Users cannot change their own role
+if (isOwnProfile && role !== undefined && role !== existingUser.role) {
+  return sendError(res, 'You cannot change your own role', 403);
+}
+
+// Restrict ordinary users to editing their own basic profile
+if (isOwnProfile && !canUpdateAllFields) {
+  if (
+    role !== undefined ||
+    department_id !== undefined ||
+    location_id !== undefined ||
+    employee_id !== undefined ||
+    is_active !== undefined
+  ) {
+    return sendError(res, 'You can only update your name', 403);
+  }
+}
     // Check for email conflicts if being updated
     if (email && email.toLowerCase() !== existingUser.email.toLowerCase()) {
       const emailConflictResult = await pool.request()
@@ -929,16 +971,41 @@ router.delete('/:id',
     // Check if user exists
     const existingResult = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
-      .query('SELECT user_id FROM USER_MASTER WHERE user_id = @id');
+      // .query('SELECT user_id FROM USER_MASTER WHERE user_id = @id');
+    .query(`
+  SELECT user_id, role
+  FROM USER_MASTER
+  WHERE user_id = @id
+`);
 
     if (existingResult.recordset.length === 0) {
       return sendNotFound(res, 'User not found');
     }
 
     // Prevent users from deleting themselves
-    if (req.user.id === id) {
-      return sendError(res, 'You cannot delete your own account', 403);
-    }
+    // if (req.user.id === id) {
+    //   return sendError(res, 'You cannot delete your own account', 403);
+    // }
+
+    const currentUser = req.oauth.user;
+const targetUser = existingResult.recordset[0];
+
+// Prevent users from deleting themselves
+if (currentUser.id === id) {
+  return sendError(res, 'You cannot delete your own account', 403);
+}
+
+// Coordinator cannot delete Admin or SuperAdmin
+if (
+  currentUser.role === USER_ROLES.COORDINATOR &&
+  !canCoordinatorManageRole(targetUser.role)
+) {
+  return sendError(
+    res,
+    'Coordinator cannot delete Admin or SuperAdmin users',
+    403
+  );
+}
 
     // Complete user data cleanup process
     const transaction = pool.transaction();
@@ -1090,15 +1157,11 @@ router.post('/:id/reset-password',
 
 if (
   currentUser.role === USER_ROLES.COORDINATOR &&
-  ![
-    USER_ROLES.DEPARTMENT_COORDINATOR,
-    USER_ROLES.ENGINEER,
-    USER_ROLES.EMPLOYEE
-  ].includes(user.role)
+  !canCoordinatorManageRole(user.role)
 ) {
   return sendError(
     res,
-    'Coordinator cannot reset passwords for this user role',
+    'Coordinator cannot reset Admin or SuperAdmin passwords',
     403
   );
 }
@@ -1174,38 +1237,34 @@ router.post('/:id/unlock',
 
     const pool = await connectDB();
 
-    const currentUser = req.oauth.user;
 
-if (currentUser.role === USER_ROLES.COORDINATOR) {
-  const targetResult = await pool.request()
-    .input('id', sql.UniqueIdentifier, id)
-    .query(`
-      SELECT role
-      FROM USER_MASTER
-      WHERE user_id = @id
-    `);
+// First check whether the user exists
+const existingResult = await pool.request()
+  .input('id', sql.UniqueIdentifier, id)
+  .query(`
+    SELECT user_id, email, locked_until, role
+    FROM USER_MASTER
+    WHERE user_id = @id
+  `);
 
-  const targetRole = targetResult.recordset[0]?.role;
-
-  if (
-    ![
-      USER_ROLES.DEPARTMENT_COORDINATOR,
-      USER_ROLES.ENGINEER,
-      USER_ROLES.EMPLOYEE
-    ].includes(targetRole)
-  ) {
-    return sendError(res, 'Coordinator cannot unlock this user role', 403);
-  }
+if (existingResult.recordset.length === 0) {
+  return sendNotFound(res, 'User not found');
 }
-    
-    // Check if user exists
-    const existingResult = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
-      .query('SELECT user_id, email, locked_until, role FROM USER_MASTER WHERE user_id = @id');
 
-    if (existingResult.recordset.length === 0) {
-      return sendNotFound(res, 'User not found');
-    }
+const currentUser = req.oauth.user;
+const targetUser = existingResult.recordset[0];
+
+// Coordinator cannot unlock Admin or SuperAdmin accounts
+if (
+  currentUser.role === USER_ROLES.COORDINATOR &&
+  !canCoordinatorManageRole(targetUser.role)
+) {
+  return sendError(
+    res,
+    'Coordinator cannot unlock Admin or SuperAdmin accounts',
+    403
+  );
+}
 
     // Reset failed attempts and unlock
     await pool.request()
