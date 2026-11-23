@@ -19,6 +19,16 @@ const { generateSecurePassword } = require('../../utils/password-generator');
 
 const router = express.Router();
 
+// Check whether the logged-in user can manage a target role
+const canManageTargetRole = (currentRole, targetRole) => {
+  const hierarchy = authConfig.ROLE_HIERARCHY || {};
+
+  const currentLevel = hierarchy[currentRole] || 0;
+  const targetLevel = hierarchy[targetRole] || 0;
+
+  return currentLevel > targetLevel;
+};
+
 // Mount bulk upload routes
 const bulkUploadRouter = require('./bulk-upload');
 router.use('/bulk-upload', bulkUploadRouter);
@@ -497,6 +507,24 @@ router.post('/',
 
     const pool = await connectDB();
 
+    const currentUser = req.oauth.user;
+
+if (currentUser.role === USER_ROLES.COORDINATOR) {
+  const allowedRoles = [
+    USER_ROLES.DEPARTMENT_COORDINATOR,
+    USER_ROLES.ENGINEER,
+    USER_ROLES.EMPLOYEE
+  ];
+
+  if (!allowedRoles.includes(role)) {
+    return sendError(
+      res,
+      'Coordinator can create only Department Coordinator, Engineer and Employee users',
+      403
+    );
+  }
+}
+
     // Auto-generate email if not provided
     let finalEmail = email;
     if (!finalEmail || finalEmail.trim() === '') {
@@ -702,9 +730,20 @@ router.put('/:id',
     const existingUser = existingResult.recordset[0];
 
     // Only allow users to update their own profile (limited fields) or admins to update any user
-    const isOwnProfile = req.user.id === id;
-    // const canUpdateAllFields = [USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD].includes(req.user.role);
-    const canUpdateAllFields = [ USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD, USER_ROLES.COORDINATOR].includes(req.user.role);
+    // const isOwnProfile = req.user.id === id;
+    // // const canUpdateAllFields = [USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD].includes(req.user.role);
+    // const canUpdateAllFields = [ USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN, USER_ROLES.DEPARTMENT_HEAD, USER_ROLES.COORDINATOR].includes(req.user.role);
+
+    const currentUser = req.oauth.user;
+
+const isOwnProfile = currentUser.id === id;
+
+const canUpdateAllFields = [
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPERADMIN,
+  USER_ROLES.DEPARTMENT_HEAD,
+  USER_ROLES.COORDINATOR
+].includes(currentUser.role);
 
     if (isOwnProfile && !canUpdateAllFields) {
       // Users can only update their own name
@@ -1019,7 +1058,12 @@ router.get('/:id/subordinates',
 // POST /users/:id/reset-password - Reset user password (admin only)
 router.post('/:id/reset-password',
   validateUUID('id'),
-  requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  // requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+            requireRole([
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPERADMIN,
+  USER_ROLES.COORDINATOR
+]),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     let { new_password } = req.body;
@@ -1029,13 +1073,35 @@ router.post('/:id/reset-password',
     // Check if user exists and get user details
     const existingResult = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
-      .query('SELECT user_id, email, first_name, last_name FROM USER_MASTER WHERE user_id = @id');
+      // .query('SELECT user_id, email, first_name, last_name FROM USER_MASTER WHERE user_id = @id');
+    .query(`
+  SELECT user_id, email, first_name, last_name, role
+  FROM USER_MASTER
+  WHERE user_id = @id
+`);
 
     if (existingResult.recordset.length === 0) {
       return sendNotFound(res, 'User not found');
     }
 
     const user = existingResult.recordset[0];
+
+    const currentUser = req.oauth.user;
+
+if (
+  currentUser.role === USER_ROLES.COORDINATOR &&
+  ![
+    USER_ROLES.DEPARTMENT_COORDINATOR,
+    USER_ROLES.ENGINEER,
+    USER_ROLES.EMPLOYEE
+  ].includes(user.role)
+) {
+  return sendError(
+    res,
+    'Coordinator cannot reset passwords for this user role',
+    403
+  );
+}
 
     // Auto-generate password if not provided
     let passwordGenerated = false;
@@ -1097,16 +1163,45 @@ router.post('/:id/reset-password',
 // POST /users/:id/unlock - Unlock user account (admin only)
 router.post('/:id/unlock',
   validateUUID('id'),
-  requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+  // requireRole([USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN]),
+            requireRole([
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPERADMIN,
+  USER_ROLES.COORDINATOR
+]),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const pool = await connectDB();
+
+    const currentUser = req.oauth.user;
+
+if (currentUser.role === USER_ROLES.COORDINATOR) {
+  const targetResult = await pool.request()
+    .input('id', sql.UniqueIdentifier, id)
+    .query(`
+      SELECT role
+      FROM USER_MASTER
+      WHERE user_id = @id
+    `);
+
+  const targetRole = targetResult.recordset[0]?.role;
+
+  if (
+    ![
+      USER_ROLES.DEPARTMENT_COORDINATOR,
+      USER_ROLES.ENGINEER,
+      USER_ROLES.EMPLOYEE
+    ].includes(targetRole)
+  ) {
+    return sendError(res, 'Coordinator cannot unlock this user role', 403);
+  }
+}
     
     // Check if user exists
     const existingResult = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
-      .query('SELECT user_id, email, locked_until FROM USER_MASTER WHERE user_id = @id');
+      .query('SELECT user_id, email, locked_until, role FROM USER_MASTER WHERE user_id = @id');
 
     if (existingResult.recordset.length === 0) {
       return sendNotFound(res, 'User not found');
