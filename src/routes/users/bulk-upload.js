@@ -29,7 +29,7 @@ router.get('/template',
   USER_ROLES.ADMIN,
   USER_ROLES.SUPERADMIN,
   USER_ROLES.COORDINATOR
-])
+]),
   asyncHandler(async (req, res) => {
     const pool = await connectDB();
 
@@ -64,7 +64,7 @@ router.post('/',
   USER_ROLES.ADMIN,
   USER_ROLES.SUPERADMIN,
   USER_ROLES.COORDINATOR
-])
+]),
   upload.single('file'),
   handleUploadError,
   asyncHandler(async (req, res) => {
@@ -247,7 +247,7 @@ router.post('/validate',
   USER_ROLES.ADMIN,
   USER_ROLES.SUPERADMIN,
   USER_ROLES.COORDINATOR
-])
+]),
   upload.single('file'),
   handleUploadError,
   asyncHandler(async (req, res) => {
