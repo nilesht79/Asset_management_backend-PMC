@@ -205,8 +205,11 @@ module.exports = {
       'reports.view', 'reports.dashboard'
     ],
     coordinator: [
-      // User management (read only)
+       // User management
       'users.read',
+      'users.create',
+      'users.update',
+      'users.delete',
 
       // Asset management
       'assets.create', 'assets.read', 'assets.update', 'assets.assign', 'assets.maintenance',
