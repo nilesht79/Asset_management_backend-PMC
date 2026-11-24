@@ -1375,37 +1375,12 @@ router.post('/legacy-import',
 
           
 // Get the logged-in user who is creating this asset
-const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
-const actorRole = req.user?.role || 'unknown';
-
-let actorName = 'Unknown User';
-let actorEmployeeId = null;
-
-if (actorUserId) {
-  const actorResult = await pool.request()
-    .input('actorUserId', sql.UniqueIdentifier, actorUserId)
-    .query(`
-      SELECT
-        user_id,
-        first_name,
-        last_name,
-        employee_id
-      FROM USER_MASTER
-      WHERE user_id = @actorUserId
-    `);
-
-  if (actorResult.recordset.length > 0) {
-    const actor = actorResult.recordset[0];
-
-    actorName = [
-      actor.first_name,
-      actor.last_name
-    ].filter(Boolean).join(' ') || 'Unknown User';
-
-    actorEmployeeId = actor.employee_id || null;
-  }
-}
-
+const {
+  actorUserId,
+  actorName,
+  actorEmployeeId,
+  actorRole
+} = await getActivityActor(req, pool);
 // Initial activity entry
 const initialActivityHistory = JSON.stringify([
   {
@@ -2383,37 +2358,14 @@ router.post('/bulk',
         // `);
 
         
-        // Capture the logged-in user who creates this asset
-        const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
-        const actorRole = req.user?.role || 'unknown';
-
-       let actorName = 'Unknown User';
-let actorEmployeeId = null;
-
-if (actorUserId) {
-  const actorResult = await pool.request()
-    .input('actorUserId', sql.UniqueIdentifier, actorUserId)
-    .query(`
-      SELECT
-        user_id,
-        first_name,
-        last_name,
-        employee_id
-      FROM USER_MASTER
-      WHERE user_id = @actorUserId
-    `);
-
-  if (actorResult.recordset.length > 0) {
-    const actor = actorResult.recordset[0];
-
-    actorName = [
-      actor.first_name,
-      actor.last_name
-    ].filter(Boolean).join(' ') || 'Unknown User';
-
-    actorEmployeeId = actor.employee_id || null;
-  }
-}
+ // Capture the logged-in user who creates this asset
+const {
+  actorUserId,
+  actorName,
+  actorEmployeeId,
+  actorRole
+} = await getActivityActor(req, pool);
+        
         const initialActivityHistory = JSON.stringify([
           {
   action: 'ASSET_CREATED',
@@ -2679,37 +2631,14 @@ router.post('/',
     // Generate asset ID upfront
     const assetId = uuidv4();
 
-    // Capture the logged-in user who creates the asset
-const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
-const actorRole = req.user?.role || 'unknown';
+// Capture the logged-in user who creates the asset
+const {
+  actorUserId,
+  actorName,
+  actorEmployeeId,
+  actorRole
+} = await getActivityActor(req, pool);
 
-let actorName = 'Unknown User';
-let actorEmployeeId = null;
-
-if (actorUserId) {
-  const actorResult = await pool.request()
-    .input('actorUserId', sql.UniqueIdentifier, actorUserId)
-    .query(`
-      SELECT
-        user_id,
-        first_name,
-        last_name,
-        employee_id
-      FROM USER_MASTER
-      WHERE user_id = @actorUserId
-    `);
-
-  if (actorResult.recordset.length > 0) {
-    const actor = actorResult.recordset[0];
-
-    actorName = [
-      actor.first_name,
-      actor.last_name
-    ].filter(Boolean).join(' ') || 'Unknown User';
-
-    actorEmployeeId = actor.employee_id || null;
-  }
-}
 
 const initialActivityHistory = JSON.stringify([
   {
@@ -2971,36 +2900,12 @@ router.put('/:id',
 
     
 // Identify the user updating this asset
-const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
-const actorRole = req.user?.role || 'unknown';
-
-let actorName = 'Unknown User';
-let actorEmployeeId = null;
-
-if (actorUserId) {
-  const actorResult = await pool.request()
-    .input('actorUserId', sql.UniqueIdentifier, actorUserId)
-    .query(`
-      SELECT
-        user_id,
-        first_name,
-        last_name,
-        employee_id
-      FROM USER_MASTER
-      WHERE user_id = @actorUserId
-    `);
-
-  if (actorResult.recordset.length > 0) {
-    const actor = actorResult.recordset[0];
-
-    actorName = [
-      actor.first_name,
-      actor.last_name
-    ].filter(Boolean).join(' ') || 'Unknown User';
-
-    actorEmployeeId = actor.employee_id || null;
-  }
-}
+const {
+  actorUserId,
+  actorName,
+  actorEmployeeId,
+  actorRole
+} = await getActivityActor(req, pool);
 
 // Capture old and new values
 const activityChanges = {};
