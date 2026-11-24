@@ -1292,6 +1292,43 @@ router.post('/legacy-import',
 
           const assetId = uuidv4();
 
+          
+// Get the logged-in user who is creating this asset
+const actorUserId = req.user?.user_id || null;
+const actorRole = req.user?.role || 'unknown';
+
+let actorName = 'Unknown User';
+
+if (actorUserId) {
+  const actorResult = await pool.request()
+    .input('actorUserId', sql.UniqueIdentifier, actorUserId)
+    .query(`
+      SELECT first_name, last_name
+      FROM USER_MASTER
+      WHERE user_id = @actorUserId
+    `);
+
+  if (actorResult.recordset.length > 0) {
+    actorName = [
+      actorResult.recordset[0].first_name,
+      actorResult.recordset[0].last_name
+    ].filter(Boolean).join(' ');
+  }
+}
+
+// Initial activity entry
+const initialActivityHistory = JSON.stringify([
+  {
+    action: 'ASSET_CREATED',
+    user_id: actorUserId,
+    user_name: actorName,
+    user_role: actorRole,
+    date: new Date().toISOString(),
+    changes: {}
+  }
+]);
+
+
           // Validate component installation if it's a component
           if (asset_type === 'component' && parentAssetId) {
             const validationResult = await pool.request()
@@ -1944,6 +1981,11 @@ router.get('/:id',
 
     const result = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
+      .input(
+  'activityHistory',
+  sql.NVarChar(sql.MAX),
+  initialActivityHistory
+)
       .query(`
         SELECT
           a.id,
@@ -2243,14 +2285,14 @@ router.post('/bulk',
             purchase_date, warranty_start_date, warranty_end_date, eol_date, eos_date,
             purchase_cost, notes, is_active,
             asset_type, parent_asset_id, installation_date, installation_notes,
-            created_at, updated_at, location_id, department_id
+            created_at, updated_at, location_id, department_id, activity_history
           )
           VALUES (
             @id, @assetTag, @tagNo, @serialNumber, @productId, @assignedTo, @status, @conditionStatus,
             @purchaseDate, @warrantyStartDate, @warrantyEndDate, @eolDate, @eosDate,
             @purchaseCost, @notes, @isActive,
             @assetType, @parentAssetId, @installationDate, @installationNotes,
-            GETUTCDATE(), GETUTCDATE(), @locationId, @departmentId
+            GETUTCDATE(), GETUTCDATE(), @locationId, @departmentId, @activityHistory
           )
         `);
 
@@ -2709,6 +2751,74 @@ router.put('/:id',
 
     const existingAsset = existingResult.recordset[0];
 
+    
+// Identify the user updating this asset
+const actorUserId = req.user?.user_id || null;
+const actorRole = req.user?.role || 'unknown';
+
+let actorName = 'Unknown User';
+
+if (actorUserId) {
+  const actorResult = await pool.request()
+    .input('actorUserId', sql.UniqueIdentifier, actorUserId)
+    .query(`
+      SELECT first_name, last_name
+      FROM USER_MASTER
+      WHERE user_id = @actorUserId
+    `);
+
+  if (actorResult.recordset.length > 0) {
+    actorName = [
+      actorResult.recordset[0].first_name,
+      actorResult.recordset[0].last_name
+    ].filter(Boolean).join(' ');
+  }
+}
+
+// Capture old and new values
+const activityChanges = {};
+
+const trackedFields = {
+  asset_tag: 'asset_tag',
+  serial_number: 'serial_number',
+  product_id: 'product_id',
+  assigned_to: 'assigned_to',
+  status: 'status',
+  condition_status: 'condition_status',
+  importance: 'importance',
+  purchase_date: 'purchase_date',
+  warranty_start_date: 'warranty_start_date',
+  warranty_end_date: 'warranty_end_date',
+  eol_date: 'eol_date',
+  eos_date: 'eos_date',
+  purchase_cost: 'purchase_cost',
+  vendor_id: 'vendor_id',
+  invoice_number: 'invoice_number',
+  notes: 'notes',
+  is_active: 'is_active',
+  asset_type: 'asset_type',
+  parent_asset_id: 'parent_asset_id',
+  installation_notes: 'installation_notes',
+  installed_by: 'installed_by',
+  location_id: 'location_id',
+  department_id: 'department_id'
+};
+
+for (const [requestField, databaseField] of Object.entries(trackedFields)) {
+  if (req.body[requestField] !== undefined) {
+    const oldValue = existingAsset[databaseField] ?? null;
+    const newValue = req.body[requestField] ?? null;
+
+    if (String(oldValue ?? '') !== String(newValue ?? '')) {
+      activityChanges[databaseField] = {
+        old: oldValue,
+        new: newValue
+      };
+    }
+  }
+}
+
+
     // Validate component hierarchy changes
     if (asset_type !== undefined) {
       // Prevent changing asset_type if asset has children installed
@@ -2920,11 +3030,51 @@ router.put('/:id',
       updateRequest.input('installedBy', sql.UniqueIdentifier, installed_by);
     }
 
-    if (updateFields.length === 0) {
-      return sendError(res, 'No fields to update', 400);
-    }
+    // if (updateFields.length === 0) {
+    //   return sendError(res, 'No fields to update', 400);
+    // }
 
-    updateFields.push('updated_at = GETUTCDATE()');
+    // updateFields.push('updated_at = GETUTCDATE()');
+
+    
+if (updateFields.length === 0) {
+  return sendError(res, 'No fields to update', 400);
+}
+
+// Create activity entry only when actual tracked fields changed
+if (Object.keys(activityChanges).length > 0) {
+  const activityEntry = JSON.stringify({
+    action: 'ASSET_UPDATED',
+    user_id: actorUserId,
+    user_name: actorName,
+    user_role: actorRole,
+    date: new Date().toISOString(),
+    changes: activityChanges
+  });
+
+  updateRequest.input(
+    'activityEntry',
+    sql.NVarChar(sql.MAX),
+    activityEntry
+  );
+
+  updateFields.push(`
+    activity_history =
+      CASE
+        WHEN ISJSON(activity_history) = 1
+          AND LEFT(LTRIM(activity_history), 1) = '['
+        THEN JSON_MODIFY(
+          activity_history,
+          'append $',
+          JSON_QUERY(@activityEntry)
+        )
+        ELSE CONCAT('[', @activityEntry, ']')
+      END
+  `);
+}
+
+updateFields.push('updated_at = GETUTCDATE()');
+
 
     const result = await updateRequest.query(`
       UPDATE assets
