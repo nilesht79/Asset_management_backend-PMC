@@ -881,51 +881,152 @@ ON t.ticket_id = tcr.ticket_id
   /**
    * Get ticket statistics for dashboard
    */
-  static async getTicketStats(filters = {}) {
-    try {
-      const pool = await connectDB();
+  // static async getTicketStats(filters = {}) {
+  //   try {
+  //     const pool = await connectDB();
 
-      let whereClause = 'WHERE 1=1';
-      const params = {};
+  //     let whereClause = 'WHERE 1=1';
+  //     const params = {};
 
-      if (filters.department_id) {
-        whereClause += ' AND department_id = @departmentId';
-        params.departmentId = filters.department_id;
-      }
+  //     if (filters.department_id) {
+  //       whereClause += ' AND department_id = @departmentId';
+  //       params.departmentId = filters.department_id;
+  //     }
 
-      if (filters.location_id) {
-        whereClause += ' AND location_id = @locationId';
-        params.locationId = filters.location_id;
-      }
+  //     if (filters.location_id) {
+  //       whereClause += ' AND location_id = @locationId';
+  //       params.locationId = filters.location_id;
+  //     }
 
-      const query = `
-        SELECT
-          COUNT(*) AS total_tickets,
-          SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) AS open_tickets,
-          SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) AS assigned_tickets,
-          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tickets,
-          SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) AS resolved_tickets,
-          SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed_tickets,
-          SUM(CASE WHEN priority = 'critical' OR priority = 'emergency' THEN 1 ELSE 0 END) AS critical_tickets,
-          SUM(CASE WHEN due_date < GETUTCDATE() AND status NOT IN ('closed', 'resolved') THEN 1 ELSE 0 END) AS overdue_tickets,
-          SUM(CASE WHEN CAST(closed_at AS DATE) = CAST(GETUTCDATE() AS DATE) THEN 1 ELSE 0 END) AS closed_today,
-          SUM(CASE WHEN CAST(created_at AS DATE) = CAST(GETUTCDATE() AS DATE) THEN 1 ELSE 0 END) AS today_tickets
-        FROM TICKETS
-        ${whereClause}
-      `;
+  //     const query = `
+  //       SELECT
+  //         COUNT(*) AS total_tickets,
+  //         SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) AS open_tickets,
+  //         SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) AS assigned_tickets,
+  //         SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tickets,
+  //         SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) AS resolved_tickets,
+  //         SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed_tickets,
+  //         SUM(CASE WHEN priority = 'critical' OR priority = 'emergency' THEN 1 ELSE 0 END) AS critical_tickets,
+  //         SUM(CASE WHEN due_date < GETUTCDATE() AND status NOT IN ('closed', 'resolved') THEN 1 ELSE 0 END) AS overdue_tickets,
+  //         SUM(CASE WHEN CAST(closed_at AS DATE) = CAST(GETUTCDATE() AS DATE) THEN 1 ELSE 0 END) AS closed_today,
+  //         SUM(CASE WHEN CAST(created_at AS DATE) = CAST(GETUTCDATE() AS DATE) THEN 1 ELSE 0 END) AS today_tickets
+  //       FROM TICKETS
+  //       ${whereClause}
+  //     `;
 
-      let request = pool.request();
-      Object.keys(params).forEach(key => {
-        request.input(key, sql.UniqueIdentifier, params[key]);
-      });
+  //     let request = pool.request();
+  //     Object.keys(params).forEach(key => {
+  //       request.input(key, sql.UniqueIdentifier, params[key]);
+  //     });
 
-      const result = await request.query(query);
-      return result.recordset[0];
-    } catch (error) {
-      console.error('Error fetching ticket stats:', error);
-      throw error;
+  //     const result = await request.query(query);
+  //     return result.recordset[0];
+  //   } catch (error) {
+  //     console.error('Error fetching ticket stats:', error);
+  //     throw error;
+  //   }
+  // }
+
+
+  
+static async getTicketStats(filters = {}) {
+  try {
+    const pool = await connectDB();
+
+    let whereClause = 'WHERE 1=1';
+    const params = {};
+
+    if (filters.department_id) {
+      whereClause += ' AND department_id = @departmentId';
+      params.departmentId = filters.department_id;
     }
+
+    if (filters.location_id) {
+      whereClause += ' AND location_id = @locationId';
+      params.locationId = filters.location_id;
+    }
+
+    const query = `
+      DECLARE @TodayIST DATE;
+      DECLARE @StartUTC DATETIME;
+      DECLARE @EndUTC DATETIME;
+
+      -- Calculate today's IST date
+      SET @TodayIST = CAST(
+        DATEADD(MINUTE, 330, GETUTCDATE()) AS DATE
+      );
+
+      -- Convert IST midnight to UTC
+      SET @StartUTC = DATEADD(
+        MINUTE,
+        -330,
+        CAST(@TodayIST AS DATETIME)
+      );
+
+      -- Calculate next IST midnight in UTC
+      SET @EndUTC = DATEADD(DAY, 1, @StartUTC);
+
+      SELECT
+        COUNT(*) AS total_tickets,
+
+        SUM(CASE WHEN status = 'open'
+          THEN 1 ELSE 0 END) AS open_tickets,
+
+        SUM(CASE WHEN status = 'assigned'
+          THEN 1 ELSE 0 END) AS assigned_tickets,
+
+        SUM(CASE WHEN status = 'in_progress'
+          THEN 1 ELSE 0 END) AS in_progress_tickets,
+
+        SUM(CASE WHEN status = 'resolved'
+          THEN 1 ELSE 0 END) AS resolved_tickets,
+
+        SUM(CASE WHEN status = 'closed'
+          THEN 1 ELSE 0 END) AS closed_tickets,
+
+        SUM(CASE
+          WHEN priority IN ('critical', 'emergency')
+          THEN 1 ELSE 0
+        END) AS critical_tickets,
+
+        SUM(CASE
+          WHEN due_date < GETUTCDATE()
+          AND status NOT IN ('closed', 'resolved')
+          THEN 1 ELSE 0
+        END) AS overdue_tickets,
+
+        COALESCE(SUM(CASE
+          WHEN closed_at >= @StartUTC
+          AND closed_at < @EndUTC
+          THEN 1 ELSE 0
+        END), 0) AS closed_today,
+
+        COALESCE(SUM(CASE
+          WHEN created_at >= @StartUTC
+          AND created_at < @EndUTC
+          THEN 1 ELSE 0
+        END), 0) AS today_tickets
+
+      FROM TICKETS
+      ${whereClause}
+    `;
+
+    const request = pool.request();
+
+    Object.keys(params).forEach(key => {
+      request.input(key, sql.UniqueIdentifier, params[key]);
+    });
+
+    const result = await request.query(query);
+
+    return result.recordset[0];
+
+  } catch (error) {
+    console.error('Error fetching ticket stats:', error);
+    throw error;
   }
+}
+
 
   //   static async addComment(commentData) {
   //   try {
