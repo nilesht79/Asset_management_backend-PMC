@@ -1981,11 +1981,6 @@ router.get('/:id',
 
     const result = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
-      .input(
-  'activityHistory',
-  sql.NVarChar(sql.MAX),
-  initialActivityHistory
-)
       .query(`
         SELECT
           a.id,
@@ -2257,6 +2252,80 @@ router.post('/bulk',
         // Components with parent = 'in_use', spare components without parent = respect user selection
         const finalStatus = (asset_type === 'component' && parentAssetId) ? 'in_use' : status;
 
+        // const request = pool.request()
+        //   .input('id', sql.UniqueIdentifier, assetId)
+        //   .input('assetTag', sql.VarChar(50), assetTag)
+        //   .input('tagNo', sql.VarChar(100), tagNo)
+        //   .input('serialNumber', sql.VarChar(100), serial_number)
+        //   .input('productId', sql.UniqueIdentifier, product_id)
+        //   .input('assignedTo', sql.UniqueIdentifier, asset.assigned_to || null)
+        //   .input('status', sql.VarChar(20), finalStatus)
+        //   .input('conditionStatus', sql.VarChar(20), condition_status)
+        //   .input('purchaseDate', sql.Date, purchase_date || null)
+        //   .input('warrantyStartDate', sql.Date, warranty_start_date || null)
+        //   .input('warrantyEndDate', sql.Date, warranty_end_date || null)
+        //   .input('eolDate', sql.Date, eol_date || null)
+        //   .input('eosDate', sql.Date, eos_date || null)
+        //   .input('purchaseCost', sql.Decimal(10, 2), purchase_cost || null)
+        //   .input('notes', sql.Text, notes || null)
+        //   .input('isActive', sql.Bit, true)
+        //   .input('assetType', sql.VarChar(20), asset_type)
+        //   .input('parentAssetId', sql.UniqueIdentifier, parentAssetId)
+        //   .input('installationDate', sql.DateTime, asset_type === 'component' ? new Date() : null)
+        //   .input('installationNotes', sql.Text, installation_notes || null);
+        //   .input('activityHistory', sql.NVarChar(sql.MAX), initialActivityHistory)
+        // await request.query(`
+        //   INSERT INTO assets (
+        //     id, asset_tag, tag_no, serial_number, product_id, assigned_to, status, condition_status,
+        //     purchase_date, warranty_start_date, warranty_end_date, eol_date, eos_date,
+        //     purchase_cost, notes, is_active,
+        //     asset_type, parent_asset_id, installation_date, installation_notes,
+        //     created_at, updated_at, location_id, department_id, activity_history
+        //   )
+        //   VALUES (
+        //     @id, @assetTag, @tagNo, @serialNumber, @productId, @assignedTo, @status, @conditionStatus,
+        //     @purchaseDate, @warrantyStartDate, @warrantyEndDate, @eolDate, @eosDate,
+        //     @purchaseCost, @notes, @isActive,
+        //     @assetType, @parentAssetId, @installationDate, @installationNotes,
+        //     GETUTCDATE(), GETUTCDATE(), @locationId, @departmentId, @activityHistory
+        //   )
+        // `);
+
+        
+        // Capture the logged-in user who creates this asset
+        const actorUserId = req.user?.user_id || null;
+        const actorRole = req.user?.role || 'unknown';
+
+        let actorName = 'Unknown User';
+
+        if (actorUserId) {
+          const actorResult = await pool.request()
+            .input('actorUserId', sql.UniqueIdentifier, actorUserId)
+            .query(`
+              SELECT first_name, last_name
+              FROM USER_MASTER
+              WHERE user_id = @actorUserId
+            `);
+
+          if (actorResult.recordset.length > 0) {
+            actorName = [
+              actorResult.recordset[0].first_name,
+              actorResult.recordset[0].last_name
+            ].filter(Boolean).join(' ');
+          }
+        }
+
+        const initialActivityHistory = JSON.stringify([
+          {
+            action: 'ASSET_CREATED',
+            user_id: actorUserId,
+            user_name: actorName,
+            user_role: actorRole,
+            date: new Date().toISOString(),
+            changes: {}
+          }
+        ]);
+
         const request = pool.request()
           .input('id', sql.UniqueIdentifier, assetId)
           .input('assetTag', sql.VarChar(50), assetTag)
@@ -2277,7 +2346,10 @@ router.post('/bulk',
           .input('assetType', sql.VarChar(20), asset_type)
           .input('parentAssetId', sql.UniqueIdentifier, parentAssetId)
           .input('installationDate', sql.DateTime, asset_type === 'component' ? new Date() : null)
-          .input('installationNotes', sql.Text, installation_notes || null);
+          .input('installationNotes', sql.Text, installation_notes || null)
+          .input('locationId', sql.UniqueIdentifier, asset.location_id || null)
+          .input('departmentId', sql.UniqueIdentifier, asset.department_id || null)
+          .input('activityHistory', sql.NVarChar(sql.MAX), initialActivityHistory);
 
         await request.query(`
           INSERT INTO assets (
@@ -2295,6 +2367,7 @@ router.post('/bulk',
             GETUTCDATE(), GETUTCDATE(), @locationId, @departmentId, @activityHistory
           )
         `);
+
 
         // Install additional software (from Additional Software sheet)
         for (const software of additional_software) {
@@ -2506,6 +2579,40 @@ router.post('/',
     // Generate asset ID upfront
     const assetId = uuidv4();
 
+    // Capture the logged-in user who creates the asset
+const actorUserId = req.user?.user_id || null;
+const actorRole = req.user?.role || 'unknown';
+
+let actorName = 'Unknown User';
+
+if (actorUserId) {
+  const actorResult = await pool.request()
+    .input('actorUserId', sql.UniqueIdentifier, actorUserId)
+    .query(`
+      SELECT first_name, last_name
+      FROM USER_MASTER
+      WHERE user_id = @actorUserId
+    `);
+
+  if (actorResult.recordset.length > 0) {
+    actorName = [
+      actorResult.recordset[0].first_name,
+      actorResult.recordset[0].last_name
+    ].filter(Boolean).join(' ');
+  }
+}
+
+const initialActivityHistory = JSON.stringify([
+  {
+    action: 'ASSET_CREATED',
+    user_id: actorUserId,
+    user_name: actorName,
+    user_role: actorRole,
+    date: new Date().toISOString(),
+    changes: {}
+  }
+]);
+
     // Validate component installation if it's a component
     if (asset_type === 'component' && parent_asset_id) {
       const validationResult = await pool.request()
@@ -2561,20 +2668,21 @@ router.post('/',
       .input('installedBy', sql.UniqueIdentifier, performedBy)
       .input('locationId', sql.UniqueIdentifier, location_id || null)
       .input('departmentId', sql.UniqueIdentifier, department_id || null)
+      .input('activityHistory', sql.NVarChar(sql.MAX), initialActivityHistory)
       .query(`
         INSERT INTO assets (
           id, asset_tag, tag_no, serial_number, product_id, assigned_to, status, condition_status, importance,
           purchase_date, warranty_end_date, warranty_start_date, eol_date, eos_date,
           purchase_cost, vendor_id, invoice_number, notes, is_active,
           asset_type, parent_asset_id, installation_date, installation_notes, installed_by,
-          created_at, updated_at, location_id, department_id
+          created_at, updated_at, location_id, department_id, activity_history
         )
         VALUES (
           @id, @assetTag, @tagNo, @serialNumber, @productId, @assignedTo, @status, @conditionStatus, @importance,
           @purchaseDate, @warrantyEndDate, @warrantyStartDate, @eolDate, @eosDate,
           @purchaseCost, @vendorId, @invoiceNumber, @notes, @isActive,
           @assetType, @parentAssetId, @installationDate, @installationNotes, @installedBy,
-          GETUTCDATE(), GETUTCDATE(), @locationId, @departmentId
+          GETUTCDATE(), GETUTCDATE(), @locationId, @departmentId, @activityHistory
         );
 
         SELECT
