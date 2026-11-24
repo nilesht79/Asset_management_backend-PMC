@@ -18,6 +18,87 @@ const { generateUniqueTagNo, generateUniqueAssetTag } = require('../../utils/tag
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+
+
+const getActivityActor = async (req, pool) => {
+  const oauthUser = req.oauth?.user || {};
+  const requestUser = req.user || {};
+
+  const loginId =
+    oauthUser.id ||
+    oauthUser.user_id ||
+    requestUser.id ||
+    requestUser.user_id ||
+    null;
+
+  const loginEmail =
+    oauthUser.email ||
+    requestUser.email ||
+    null;
+
+  const loginRole =
+    oauthUser.role ||
+    requestUser.role ||
+    'unknown';
+
+  if (!loginId && !loginEmail) {
+    console.error('Activity history: No authenticated user ID or email found');
+    return {
+      actorUserId: null,
+      actorName: 'Unknown User',
+      actorEmployeeId: null,
+      actorRole: loginRole
+    };
+  }
+
+  const result = await pool.request()
+    .input('actorUserId', sql.UniqueIdentifier, loginId)
+    .input('actorEmail', sql.VarChar(255), loginEmail)
+    .query(`
+      SELECT TOP 1
+        user_id,
+        first_name,
+        last_name,
+        employee_id,
+        email,
+        role
+      FROM dbo.USER_MASTER
+      WHERE
+        (@actorUserId IS NOT NULL AND user_id = @actorUserId)
+        OR
+        (@actorEmail IS NOT NULL AND LOWER(email) = LOWER(@actorEmail))
+    `);
+
+  if (result.recordset.length === 0) {
+    console.error('Activity history: User not found in USER_MASTER', {
+      loginId,
+      loginEmail
+    });
+
+    return {
+      actorUserId: null,
+      actorName: 'Unknown User',
+      actorEmployeeId: null,
+      actorRole: loginRole
+    };
+  }
+
+  const actor = result.recordset[0];
+
+  const actorName = [
+    actor.first_name,
+    actor.last_name
+  ].filter(Boolean).join(' ') || 'Unknown User';
+
+  return {
+    actorUserId: actor.user_id,
+    actorName,
+    actorEmployeeId: actor.employee_id || null,
+    actorRole: actor.role || loginRole
+  };
+};
+
+
 // Import component routes
 const componentRoutes = require('./components');
 // Import label routes
@@ -1294,7 +1375,7 @@ router.post('/legacy-import',
 
           
 // Get the logged-in user who is creating this asset
-const actorUserId =   req.user?.user_id ||   req.user?.id ||   req.user?.userId ||   null;
+const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
 const actorRole = req.user?.role || 'unknown';
 
 let actorName = 'Unknown User';
@@ -2303,7 +2384,7 @@ router.post('/bulk',
 
         
         // Capture the logged-in user who creates this asset
-        const actorUserId =   req.user?.user_id ||   req.user?.id ||   req.user?.userId ||   null;
+        const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
         const actorRole = req.user?.role || 'unknown';
 
        let actorName = 'Unknown User';
@@ -2599,7 +2680,7 @@ router.post('/',
     const assetId = uuidv4();
 
     // Capture the logged-in user who creates the asset
-const actorUserId =   req.user?.user_id ||   req.user?.id ||   req.user?.userId ||   null;
+const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
 const actorRole = req.user?.role || 'unknown';
 
 let actorName = 'Unknown User';
@@ -2890,7 +2971,7 @@ router.put('/:id',
 
     
 // Identify the user updating this asset
-const actorUserId =   req.user?.user_id ||   req.user?.id ||   req.user?.userId ||   null;
+const {   actorUserId,   actorName,   actorEmployeeId,   actorRole } = await getActivityActor(req, pool);
 const actorRole = req.user?.role || 'unknown';
 
 let actorName = 'Unknown User';
