@@ -1873,6 +1873,67 @@ router.get('/lifecycle/statistics',
 );
 
 // GET /assets/:id - Get asset by ID
+// router.get('/:id',
+//   requireDynamicPermission(),
+//   validateUUID('id'),
+//   asyncHandler(async (req, res) => {
+//     const { id } = req.params;
+
+//     const pool = await connectDB();
+//     const result = await pool.request()
+//       .input('id', sql.UniqueIdentifier, id)
+//       .query(`
+//         SELECT
+//           a.id, a.asset_tag, a.status, a.condition_status, a.importance, a.purchase_date,
+//           a.warranty_start_date, a.warranty_end_date,
+//           a.purchase_cost, a.notes, a.created_at, a.updated_at,
+//           a.eol_date, a.eos_date,
+//           a.product_id, p.name as product_name, p.model as product_model, p.description as product_description,
+//           p.specifications, p.warranty_period,
+//           COALESCE(a.location_id, u.location_id) as location_id, COALESCE(a.department_id, u.department_id) as department_id, l.name as location_name, l.address as location_address, d.name as department_name,
+//           a.assigned_to, u.first_name + ' ' + u.last_name as assigned_user_name,
+//           u.email as assigned_user_email, u.employee_id,
+//           c.id as category_id, c.name as category_name,
+//           sc.id as subcategory_id, sc.name as subcategory_name,
+//           o.id as oem_id, o.name as oem_name, o.contact_person as oem_contact,
+//           CASE
+//             WHEN a.warranty_end_date IS NULL THEN 'No Warranty'
+//             WHEN a.warranty_end_date < GETUTCDATE() THEN 'Expired'
+//             WHEN a.warranty_end_date BETWEEN GETUTCDATE() AND DATEADD(day, 30, GETUTCDATE()) THEN 'Expiring Soon'
+//             ELSE 'Active'
+//           END as warranty_status,
+//           DATEDIFF(day, GETUTCDATE(), a.warranty_end_date) as warranty_days_remaining
+//         FROM assets a
+//         INNER JOIN products p ON a.product_id = p.id
+//         LEFT JOIN categories c ON p.category_id = c.id
+//         LEFT JOIN categories sc ON p.subcategory_id = sc.id
+//         LEFT JOIN oems o ON p.oem_id = o.id
+//         LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
+//         LEFT JOIN locations l ON COALESCE(a.location_id, u.location_id) = l.id
+//         WHERE a.id = @id AND a.is_active = 1
+//       `);
+
+//     if (result.recordset.length === 0) {
+//       return sendNotFound(res, 'Asset not found');
+//     }
+
+//     const asset = result.recordset[0];
+
+//     // Parse specifications JSON if available
+//     if (asset.specifications) {
+//       try {
+//         asset.specifications = JSON.parse(asset.specifications);
+//       } catch (e) {
+//         asset.specifications = null;
+//       }
+//     }
+
+//     sendSuccess(res, asset, 'Asset retrieved successfully');
+//   })
+// );
+
+
+// GET /assets/:id - Get asset by ID
 router.get('/:id',
   requireDynamicPermission(),
   validateUUID('id'),
@@ -1880,37 +1941,102 @@ router.get('/:id',
     const { id } = req.params;
 
     const pool = await connectDB();
+
     const result = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
       .query(`
         SELECT
-          a.id, a.asset_tag, a.status, a.condition_status, a.importance, a.purchase_date,
-          a.warranty_start_date, a.warranty_end_date,
-          a.purchase_cost, a.notes, a.created_at, a.updated_at,
-          a.eol_date, a.eos_date,
-          a.product_id, p.name as product_name, p.model as product_model, p.description as product_description,
-          p.specifications, p.warranty_period,
-          COALESCE(a.location_id, u.location_id) as location_id, COALESCE(a.department_id, u.department_id) as department_id, l.name as location_name, l.address as location_address, d.name as department_name,
-          a.assigned_to, u.first_name + ' ' + u.last_name as assigned_user_name,
-          u.email as assigned_user_email, u.employee_id,
-          c.id as category_id, c.name as category_name,
-          sc.id as subcategory_id, sc.name as subcategory_name,
-          o.id as oem_id, o.name as oem_name, o.contact_person as oem_contact,
+          a.id,
+          a.asset_tag,
+          a.status,
+          a.condition_status,
+          a.importance,
+          a.purchase_date,
+          a.warranty_start_date,
+          a.warranty_end_date,
+          a.purchase_cost,
+          a.notes,
+          a.created_at,
+          a.updated_at,
+          a.eol_date,
+          a.eos_date,
+
+          -- Activity History
+          a.activity_history,
+
+          -- Product Information
+          a.product_id,
+          p.name AS product_name,
+          p.model AS product_model,
+          p.description AS product_description,
+          p.specifications,
+          p.warranty_period,
+
+          -- Location and Department
+          COALESCE(a.location_id, u.location_id) AS location_id,
+          COALESCE(a.department_id, u.department_id) AS department_id,
+          l.name AS location_name,
+          l.address AS location_address,
+          d.department_name AS department_name,
+
+          -- Assigned User
+          a.assigned_to,
+          u.first_name + ' ' + u.last_name AS assigned_user_name,
+          u.email AS assigned_user_email,
+          u.employee_id,
+
+          -- Category
+          c.id AS category_id,
+          c.name AS category_name,
+          sc.id AS subcategory_id,
+          sc.name AS subcategory_name,
+
+          -- OEM
+          o.id AS oem_id,
+          o.name AS oem_name,
+          o.contact_person AS oem_contact,
+
+          -- Warranty Status
           CASE
             WHEN a.warranty_end_date IS NULL THEN 'No Warranty'
             WHEN a.warranty_end_date < GETUTCDATE() THEN 'Expired'
-            WHEN a.warranty_end_date BETWEEN GETUTCDATE() AND DATEADD(day, 30, GETUTCDATE()) THEN 'Expiring Soon'
+            WHEN a.warranty_end_date BETWEEN GETUTCDATE()
+                 AND DATEADD(day, 30, GETUTCDATE())
+              THEN 'Expiring Soon'
             ELSE 'Active'
-          END as warranty_status,
-          DATEDIFF(day, GETUTCDATE(), a.warranty_end_date) as warranty_days_remaining
+          END AS warranty_status,
+
+          DATEDIFF(
+            day,
+            GETUTCDATE(),
+            a.warranty_end_date
+          ) AS warranty_days_remaining
+
         FROM assets a
-        INNER JOIN products p ON a.product_id = p.id
-        LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN categories sc ON p.subcategory_id = sc.id
-        LEFT JOIN oems o ON p.oem_id = o.id
-        LEFT JOIN USER_MASTER u ON a.assigned_to = u.user_id
-        LEFT JOIN locations l ON COALESCE(a.location_id, u.location_id) = l.id
-        WHERE a.id = @id AND a.is_active = 1
+
+        INNER JOIN products p
+          ON a.product_id = p.id
+
+        LEFT JOIN categories c
+          ON p.category_id = c.id
+
+        LEFT JOIN categories sc
+          ON p.subcategory_id = sc.id
+
+        LEFT JOIN oems o
+          ON p.oem_id = o.id
+
+        LEFT JOIN USER_MASTER u
+          ON a.assigned_to = u.user_id
+
+        LEFT JOIN DEPARTMENT_MASTER d
+          ON COALESCE(a.department_id, u.department_id) = d.department_id
+
+        LEFT JOIN locations l
+          ON COALESCE(a.location_id, u.location_id) = l.id
+
+        WHERE a.id = @id
+          AND a.is_active = 1
       `);
 
     if (result.recordset.length === 0) {
@@ -1928,9 +2054,14 @@ router.get('/:id',
       }
     }
 
-    sendSuccess(res, asset, 'Asset retrieved successfully');
+    sendSuccess(
+      res,
+      asset,
+      'Asset retrieved successfully'
+    );
   })
 );
+
 
 // POST /assets/bulk - Bulk create assets
 router.post('/bulk',
