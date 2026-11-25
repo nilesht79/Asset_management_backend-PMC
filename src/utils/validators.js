@@ -62,19 +62,36 @@ const validators = {
   },
 
   // Department validations
-  department: {
-    create: Joi.object({
-      name: Joi.string().min(2).max(100).required(),
-      description: Joi.string().max(500).optional(),
-      contact_person_id: Joi.string().uuid().optional().allow(null, '')
-    }),
+  // department: {
+  //   create: Joi.object({
+  //     name: Joi.string().min(2).max(100).required(),
+  //     description: Joi.string().max(500).optional(),
+  //     contact_person_id: Joi.string().uuid().optional().allow(null, '')
+  //   }),
     
-    update: Joi.object({
-      name: Joi.string().min(2).max(100).optional(),
-      description: Joi.string().max(500).optional(),
-      contact_person_id: Joi.string().uuid().optional().allow(null, '')
-    })
-  },
+  //   update: Joi.object({
+  //     name: Joi.string().min(2).max(100).optional(),
+  //     description: Joi.string().max(500).optional(),
+  //     contact_person_id: Joi.string().uuid().optional().allow(null, '')
+  //   })
+  // },
+
+  
+// Department validations
+department: {
+  create: Joi.object({
+    name: Joi.string().min(2).max(100).required(),
+    description: Joi.string().max(500).optional().allow('', null),
+    contact_person_id: Joi.string().uuid().optional().allow(null, '')
+  }),
+
+  update: Joi.object({
+    name: Joi.string().min(2).max(100).optional(),
+    description: Joi.string().max(500).optional().allow('', null),
+    contact_person_id: Joi.string().uuid().optional().allow(null, '')
+  })
+},
+
 
   // Master data validations
   oem: {
