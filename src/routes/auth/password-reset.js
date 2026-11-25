@@ -18,15 +18,15 @@ const router = express.Router();
 // Token expiry time: 1 hour
 const TOKEN_EXPIRY_HOURS = 1;
 
-// // Frontend URL for reset password page
-// const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+// Frontend URL for reset password page
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // Frontend URL for reset password page
-const FRONTEND_URL = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+// const FRONTEND_URL = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
 
-if (!FRONTEND_URL) {
-  throw new Error('FRONTEND_URL is not configured in environment variables');
-}
+// if (!FRONTEND_URL) {
+//   throw new Error('FRONTEND_URL is not configured in environment variables');
+// }
 
 /**
  * Generate a secure random token
