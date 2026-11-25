@@ -19,7 +19,12 @@ const router = express.Router();
 const TOKEN_EXPIRY_HOURS = 1;
 
 // Frontend URL for reset password page
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+// const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+// Frontend URL for password reset page
+const FRONTEND_URL = (
+  process.env.FRONTEND_URL || 'https://poleplus.pmc.gov.in'
+).replace(/\/+$/, '');
 
 // Frontend URL for reset password page
 // const FRONTEND_URL = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
