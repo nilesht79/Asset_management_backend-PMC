@@ -20,26 +20,59 @@ function getProductCode(productName) {
 /**
  * Generate the next asset tag using the highest existing sequence.
  */
+// async function generateAssetTag(productName, productId) {
+//   const pool = await connectDB();
+//   const productCode = getProductCode(productName);
+
+//   const result = await pool.request()
+//     .input('productId', sql.UniqueIdentifier, productId)
+//     .input('prefix', sql.VarChar(50), `${productCode}-%`)
+//     .query(`
+//       SELECT asset_tag
+//       FROM dbo.assets
+//       WHERE product_id = @productId
+//         AND asset_tag LIKE @prefix
+//     `);
+
+//   let maxSequence = 0;
+
+//   for (const row of result.recordset) {
+//     const match = row.asset_tag.match(
+//       new RegExp(`^${productCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`)
+//     );
+
+//     if (match) {
+//       maxSequence = Math.max(maxSequence, parseInt(match[1], 10));
+//     }
+//   }
+
+//   const nextSequence = maxSequence + 1;
+//   return `${productCode}-${String(nextSequence).padStart(3, '0')}`;
+// }
+
 async function generateAssetTag(productName, productId) {
   const pool = await connectDB();
   const productCode = getProductCode(productName);
 
   const result = await pool.request()
-    .input('productId', sql.UniqueIdentifier, productId)
     .input('prefix', sql.VarChar(50), `${productCode}-%`)
     .query(`
       SELECT asset_tag
       FROM dbo.assets
-      WHERE product_id = @productId
-        AND asset_tag LIKE @prefix
+      WHERE asset_tag LIKE @prefix
     `);
 
   let maxSequence = 0;
 
+  const escapedProductCode = productCode.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&'
+  );
+
+  const tagRegex = new RegExp(`^${escapedProductCode}-(\\d+)$`);
+
   for (const row of result.recordset) {
-    const match = row.asset_tag.match(
-      new RegExp(`^${productCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`)
-    );
+    const match = row.asset_tag?.match(tagRegex);
 
     if (match) {
       maxSequence = Math.max(maxSequence, parseInt(match[1], 10));
@@ -47,6 +80,7 @@ async function generateAssetTag(productName, productId) {
   }
 
   const nextSequence = maxSequence + 1;
+
   return `${productCode}-${String(nextSequence).padStart(3, '0')}`;
 }
 
