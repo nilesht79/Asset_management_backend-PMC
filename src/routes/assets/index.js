@@ -103,6 +103,51 @@ const getActivityActor = async (req, pool) => {
 };
 
 
+const appendAssetActivityHistory = async (
+  pool,
+  assetId,
+  req,
+  action,
+  changes
+) => {
+  const {
+    actorUserId,
+    actorName,
+    actorEmployeeId,
+    actorRole
+  } = await getActivityActor(req, pool);
+
+  const activityEntry = JSON.stringify({
+    action,
+    user_id: actorUserId,
+    user_name: actorName,
+    employee_id: actorEmployeeId,
+    user_role: actorRole,
+    date: new Date().toISOString(),
+    changes
+  });
+
+  await pool.request()
+    .input('assetId', sql.UniqueIdentifier, assetId)
+    .input('activityEntry', sql.NVarChar(sql.MAX), activityEntry)
+    .query(`
+      UPDATE assets
+      SET activity_history =
+        JSON_MODIFY(
+          CASE
+            WHEN ISJSON(activity_history) = 1
+              AND LEFT(LTRIM(activity_history), 1) = '['
+            THEN activity_history
+            ELSE '[]'
+          END,
+          'append $',
+          JSON_QUERY(@activityEntry)
+        )
+      WHERE id = @assetId
+    `);
+};
+
+
 // Import component routes
 const componentRoutes = require('./components');
 // Import label routes
@@ -3180,7 +3225,13 @@ if (updateFields.length === 0) {
 // Create activity entry only when actual tracked fields changed
 if (Object.keys(activityChanges).length > 0) {
   const activityEntry = JSON.stringify({
-  action: 'ASSET_UPDATED',
+  // action: 'ASSET_UPDATED',
+    action:
+  existingAsset.assigned_to && !finalAssignedTo
+    ? 'ASSET_UNASSIGNED'
+    : !existingAsset.assigned_to && finalAssignedTo
+      ? 'ASSET_ASSIGNED'
+      : 'ASSET_UPDATED',
   user_id: actorUserId,
   user_name: actorName,
   employee_id: actorEmployeeId,
@@ -3589,6 +3640,24 @@ router.post('/:id/assign',
       req.user?.id || req.user?.user_id
     );
 
+    // Also record assignment in Activity History
+await appendAssetActivityHistory(
+  pool,
+  id,
+  req,
+  'ASSET_ASSIGNED',
+  {
+    assigned_to: {
+      old: asset.assigned_to || null,
+      new: user_id
+    },
+    status: {
+      old: asset.status,
+      new: 'assigned'
+    }
+  }
+);
+
     sendSuccess(res, {
       asset_id: id,
       asset_tag: asset.asset_tag,
@@ -3660,6 +3729,24 @@ router.post('/:id/unassign',
       previousData,
       req.user?.id || req.user?.user_id
     );
+
+    // Also record unassignment in Activity History
+await appendAssetActivityHistory(
+  pool,
+  id,
+  req,
+  'ASSET_UNASSIGNED',
+  {
+    assigned_to: {
+      old: asset.assigned_to,
+      new: null
+    },
+    status: {
+      old: asset.status,
+      new: 'available'
+    }
+  }
+);
 
     sendSuccess(res, {
       asset_id: id,
