@@ -103,6 +103,59 @@ const getActivityActor = async (req, pool) => {
 };
 
 
+const getAssignedUserSnapshot = async (pool, userId) => {
+  if (!userId) return null;
+
+  const result = await pool.request()
+    .input('userId', sql.UniqueIdentifier, userId)
+    .query(`
+      SELECT
+        user_id,
+        first_name,
+        last_name,
+        employee_id
+      FROM dbo.USER_MASTER
+      WHERE user_id = @userId
+    `);
+
+  const user = result.recordset[0];
+
+  if (!user) {
+    return {
+      id: userId,
+      name: 'Unknown User',
+      employee_id: null
+    };
+  }
+
+  return {
+    id: user.user_id,
+    name: [user.first_name, user.last_name]
+      .filter(Boolean)
+      .join(' '),
+    employee_id: user.employee_id || null
+  };
+};
+
+const enrichAssignmentChanges = async (pool, changes) => {
+  const enrichedChanges = { ...changes };
+
+  if (enrichedChanges.assigned_to) {
+    enrichedChanges.assigned_to = {
+      old: await getAssignedUserSnapshot(
+        pool,
+        enrichedChanges.assigned_to.old
+      ),
+      new: await getAssignedUserSnapshot(
+        pool,
+        enrichedChanges.assigned_to.new
+      )
+    };
+  }
+
+  return enrichedChanges;
+};
+
 const appendAssetActivityHistory = async (
   pool,
   assetId,
@@ -117,15 +170,30 @@ const appendAssetActivityHistory = async (
     actorRole
   } = await getActivityActor(req, pool);
 
-  const activityEntry = JSON.stringify({
-    action,
-    user_id: actorUserId,
-    user_name: actorName,
-    employee_id: actorEmployeeId,
-    user_role: actorRole,
-    date: new Date().toISOString(),
-    changes
-  });
+  // const activityEntry = JSON.stringify({
+  //   action,
+  //   user_id: actorUserId,
+  //   user_name: actorName,
+  //   employee_id: actorEmployeeId,
+  //   user_role: actorRole,
+  //   date: new Date().toISOString(),
+  //   changes
+  // });
+
+  const enrichedChanges = await enrichAssignmentChanges(
+  pool,
+  changes
+);
+
+const activityEntry = JSON.stringify({
+  action,
+  user_id: actorUserId,
+  user_name: actorName,
+  employee_id: actorEmployeeId,
+  user_role: actorRole,
+  date: new Date().toISOString(),
+  changes: enrichedChanges
+});
 
   await pool.request()
     .input('assetId', sql.UniqueIdentifier, assetId)
@@ -3224,6 +3292,10 @@ if (updateFields.length === 0) {
 
 // Create activity entry only when actual tracked fields changed
 if (Object.keys(activityChanges).length > 0) {
+   const enrichedChanges = await enrichAssignmentChanges(
+    pool,
+    activityChanges
+  );
   const activityEntry = JSON.stringify({
   // action: 'ASSET_UPDATED',
     action:
@@ -3237,7 +3309,8 @@ if (Object.keys(activityChanges).length > 0) {
   employee_id: actorEmployeeId,
   user_role: actorRole,
   date: new Date().toISOString(),
-  changes: activityChanges
+  // changes: activityChanges
+    changes: enrichedChanges
 });
 
   updateRequest.input(
