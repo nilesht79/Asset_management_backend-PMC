@@ -11,7 +11,11 @@ const { asyncHandler } = require('../../middleware/error-handler');
 const { sendSuccess, sendCreated, sendError, sendNotFound, sendConflict } = require('../../utils/response');
 const { getPaginationInfo } = require('../../utils/helpers');
 const validators = require('../../utils/validators');
-const { logAssetAssignmentChange } = require('../../controllers/assetMovementController');
+// const { logAssetAssignmentChange } = require('../../controllers/assetMovementController');
+const {
+  logAssetAssignmentChange,
+  getAssetMovementHistory
+} = require('../../controllers/assetMovementController');
 const { generateAssetBulkTemplate, parseAssetBulkFile, generateLegacyAssetTemplate, parseLegacyAssetFile } = require('../../utils/excel-template');
 const { generateUniqueTagNo, generateUniqueAssetTag } = require('../../utils/tag-generator');
 
@@ -3862,6 +3866,21 @@ const TicketAssetsController = require('../../controllers/ticketAssetsController
 const FaultAnalysisController = require('../../controllers/faultAnalysisController');
 const { query } = require('mssql');
 
+
+/**
+ * GET /assets/:id/movements
+ * Get movement history for a specific asset
+ */
+router.get(
+  '/:id/movements',
+  requireDynamicPermission(),
+  validateUUID('id'),
+  asyncHandler(async (req, res) => {
+    req.params.assetId = req.params.id;
+
+    return getAssetMovementHistory(req, res);
+  })
+);
 
 /**
  * GET /assets/:id/repair-history
